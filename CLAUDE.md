@@ -1,8 +1,29 @@
-# System Dynamics Diagram Tool
+# Tegne
+
+## Meta File Maintenance
+
+**Always keep meta files up to date.** After any change to features, architecture, behaviour, or project scope, update the relevant files before finishing:
+
+- `CLAUDE.md` — project purpose, structure, definition of done
+- `requirements.md` — feature requirements and scope
+- `.claude/rules/*.md` — implementation rules (architecture, rendering, UI, etc.)
+- `README.md` — public-facing documentation
+
+Do not leave meta files describing a state that no longer matches the code.
+
+---
 
 ## Purpose
 
-A browser-based Forrester Stock-and-Flow diagram editor. The user writes a model in a plain-text DSL; the tool renders it as an interactive SVG. No simulation — structural/visual modelling only.
+A browser-based structural/visual modelling tool. The user writes a model in a plain-text DSL; the tool renders it as an interactive SVG. No simulation.
+
+Tegne supports multiple diagram types, selected via `@type` at the top of the DSL file:
+
+| `@type` | Diagram | Status |
+|---|---|---|
+| `sd` | Forrester Stock-and-Flow (System Dynamics) | Implemented |
+| `id` | Integration Diagram (IT Architecture) | Planned |
+| *(absent)* | Defaults to `sd` | — |
 
 **What to build:** see [`requirements.md`](requirements.md)
 **How to build it:** see [`.claude/rules/`](.claude/rules/)
@@ -19,6 +40,7 @@ A browser-based Forrester Stock-and-Flow diagram editor. The user writes a model
 | `ui-layout.md` | Two-column layout, zoom/pan, open/save/export, error panel |
 | `testing.md` | Fixtures, acceptance criteria |
 | `dependencies.md` | Pinned dependency list, what not to add |
+| `integration-diagram.md` | ID element specs, platform colours, DSL syntax, arrow rules |
 
 **Read all rule files and `requirements.md` before writing any code.**
 
@@ -27,7 +49,7 @@ A browser-based Forrester Stock-and-Flow diagram editor. The user writes a model
 ## File Structure
 
 ```
-sd-tool/
+tegne/
 ├── index.html
 ├── vite.config.ts
 ├── tsconfig.json
@@ -117,13 +139,23 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Flow strength (`weak` / `medium` / `strong`) — pipe style varies by strength
 - [x] Metadata box — bottom-left canvas annotation (name, version, date, author)
 - [x] File Open / Save — `.sd` files with `@position` directives preserve layout
-- [x] Save As — uses File System Access API for native directory/filename dialog
+- [x] Save As — uses File System Access API for native directory/filename dialog (SVG export too)
 - [x] `@theme` directive — selects colour theme (`dark`, `light`, `tokyo`)
 - [x] `themes.ts` — all colours defined per theme; no hardcoded colour values in renderer
 - [x] `@orientation` directive — controls A4 page size (landscape default / portrait)
 - [x] Canvas = A4 page — viewport is sized to the page; no dead space outside
 - [x] Zoom controls — `+` / `−` / `⊡` buttons at ×1.10 per step; label shows current %
 - [x] Scroll to pan — mouse wheel and trackpad pan the canvas in both axes
+
+### Integration Diagram (`@type id`) — planned, not yet implemented
+- [ ] `@type` directive — parser reads type first; defaults to `sd` if absent
+- [ ] Element types: `system`, `database`, `queue`
+- [ ] Platform colours: `[aws]`, `[azure]`, `[on-prem]`, `[gcp]`, `[oracle]`
+- [ ] Element states: default (current), `[new]`, `[changing]`, `[decommissioned]`
+- [ ] Label placement: inside for `system`, below for `database` and `queue`; override with `[label:inside]` / `[label:below]`
+- [ ] Connections: `connect A -> B : protocol`, `connect A <-> B : protocol`
+- [ ] Arrow styles: closed arrowhead for all connections; open arrowhead when either endpoint is a `queue`
+- [ ] Groupings — deferred to v2
 
 ---
 

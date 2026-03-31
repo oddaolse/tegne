@@ -37,7 +37,7 @@ Three buttons sit in the right toolbar, left of the Export button:
 
 ## Opening Files
 - An **Open** button sits above the textarea
-- Implemented as `<input type="file" accept=".sd">` (hidden), triggered by a visible button
+- Implemented as `<input type="file" accept=".sd,.id">` (hidden), triggered by a visible button
 - On file select: read the file as text, replace the textarea content, then automatically trigger parse + layout + render
 
 ## Saving Files
@@ -57,7 +57,8 @@ Three buttons sit in the right toolbar, left of the Export button:
 - Do **not** use `alert()` or `window.confirm()` anywhere
 
 ## Export SVG
-- Export produces a standalone `.svg` file using a programmatic download (no Save As dialog)
+- Export opens a **Save As dialog** — uses `window.showSaveFilePicker()` when available (Chrome/Edge); falls back to programmatic download (Firefox, Safari)
+- Suggested filename derived from `@name` (slugified) or `model.svg`
 - Before export: set the viewBox to the full page rect (zoom=1, pan=0); strip all `data-*` attributes
 - Exported SVG must be self-contained — no external dependencies
 - Use `Courier New`, `Courier`, `monospace` — no external fonts

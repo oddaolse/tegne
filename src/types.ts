@@ -1,8 +1,10 @@
 export type Polarity     = '+' | '-';
 export type CloudRole    = 'source' | 'sink';
 export type FlowStrength = 'weak' | 'medium' | 'strong';
+export type DiagramType  = 'sd' | 'id';
 
 export interface ModelMeta {
+  diagramType?: DiagramType;            // 'sd' | 'id'; defaults to 'sd'
   name?:       string;
   version?:    string;
   date:        string;   // ISO date; auto-filled if @date absent
@@ -53,6 +55,38 @@ export interface ParseError {
 }
 
 export interface ParseResult {
-  model:  SDModel | null;
+  model:  SDModel | IDModel | null;
   errors: ParseError[];
+}
+
+// ── Integration Diagram types ─────────────────────────────────────────────────
+
+export type Platform  = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
+export type IDState   = 'current' | 'new' | 'changing' | 'decommissioned';
+export type Direction = 'unidirectional' | 'bidirectional';
+export type LabelPos  = 'inside' | 'below';
+
+export interface IDElement extends Position {
+  kind:     'system' | 'database' | 'queue';
+  id:       string;
+  label:    string;
+  platform: Platform;
+  state:    IDState;
+  labelPos: LabelPos;
+}
+
+export interface IDConnection {
+  kind:      'connection';
+  id:        string;
+  from:      string;
+  to:        string;
+  direction: Direction;
+  protocol:  string;
+}
+
+export interface IDModel {
+  meta:           ModelMeta;   // meta.diagramType === 'id'
+  elements:       IDElement[];
+  connections:    IDConnection[];
+  savedPositions: Record<string, Position>;
 }

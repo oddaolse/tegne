@@ -1,9 +1,9 @@
-import type { SDModel, Node } from './types';
+import type { SDModel, IDModel, Node } from './types';
 import { pageRect } from './renderer';
 
 // ── SVG Export ────────────────────────────────────────────────────────────────
 
-export async function exportSVG(svgEl: SVGSVGElement, model: SDModel): Promise<void> {
+export async function exportSVG(svgEl: SVGSVGElement, model: SDModel | IDModel): Promise<void> {
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
 
   // Always export at full page zoom (ignore current pan/zoom state)
@@ -45,9 +45,29 @@ export async function saveSD(dslText: string, model: SDModel): Promise<void> {
   ]);
 }
 
+// ── ID File Save ──────────────────────────────────────────────────────────────
+
+export async function saveID(dslText: string, model: IDModel): Promise<void> {
+  const stripped = dslText
+    .split('\n')
+    .filter(l => !l.trim().startsWith('@position'))
+    .join('\n')
+    .trimEnd();
+
+  const posLines = model.elements
+    .map(e => `@position ${e.id} ${Math.round(e.x)} ${Math.round(e.y)}`)
+    .join('\n');
+
+  const content = `${stripped}\n\n${posLines}\n`;
+
+  await saveAs(content, 'text/plain', filenameFor(model, 'id'), [
+    { description: 'Tegne integration diagram files', accept: { 'text/plain': ['.id'] } },
+  ]);
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function filenameFor(model: SDModel, ext: string): string {
+function filenameFor(model: SDModel | IDModel, ext: string): string {
   const name = model.meta.name;
   if (name) {
     return `${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}.${ext}`;

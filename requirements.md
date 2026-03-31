@@ -1,4 +1,4 @@
-# Requirements — System Dynamics Diagram Tool
+# Requirements — Tegne
 
 This file defines what the tool does from a user perspective.
 For how it is built, see `.claude/rules/`.
@@ -7,7 +7,9 @@ For how it is built, see `.claude/rules/`.
 
 ## Purpose
 
-A browser-based, interactive System Dynamics (SD) diagram editor in the Forrester/DYNAMO tradition. The user defines a model in a simple text DSL. The tool renders a proper Forrester Stock-and-Flow Diagram (SFD) on an SVG canvas. All elements are draggable so the user can correct the auto-layout by hand.
+A browser-based, interactive diagram editor for structural and visual modelling. The user defines a model in a plain-text DSL. The tool renders it as an interactive SVG canvas. All elements are draggable so the user can correct the auto-layout by hand.
+
+Currently supports **Forrester Stock-and-Flow diagrams** (System Dynamics). More diagram types are planned.
 
 No simulation or equation evaluation — this is a **structural/visual modelling tool only**.
 
@@ -182,6 +184,104 @@ Rendered in the bottom-left corner of the page area, always visible.
 - Colours come from the active theme's `metaBox` slots
 - Not draggable
 - Included in SVG export unchanged
+
+---
+
+---
+
+## Diagram Types
+
+The `@type` directive at the top of a file selects the diagram type. Valid values:
+
+| Value | Diagram |
+|---|---|
+| `sd` | Forrester Stock-and-Flow (System Dynamics) — default if `@type` is absent |
+| `id` | Integration Diagram |
+
+Unknown `@type` values produce a `ParseError`.
+
+---
+
+## Integration Diagram (`@type id`)
+
+### Purpose
+
+For IT Architects to document how systems integrate — what exists, what will change, what will be decommissioned, and what is new. Provides a visual standard for integration landscape diagrams.
+
+### Element Types
+
+| Keyword | Shape | Label placement |
+|---|---|---|
+| `system` | Rectangle | Inside |
+| `database` | Vertical drum (cylinder) | Below |
+| `queue` | Horizontal cylinder | Below |
+
+Label placement can be overridden with `[label:inside]` or `[label:below]`.
+
+### Platform
+
+Every element declares its platform in square brackets. This controls fill colour.
+
+| Platform | Colour | Hex |
+|---|---|---|
+| `[aws]` | Orange | `#FF9900` |
+| `[azure]` | Blue | `#0078D4` |
+| `[on-prem]` | Olive green | `#6B7C3A` |
+| `[gcp]` | Green | `#34A853` |
+| `[oracle]` | Red | `#C74634` |
+
+### Element State
+
+An optional second bracket sets the lifecycle state of an element.
+
+| State | Border | Fill |
+|---|---|---|
+| *(absent — current)* | Solid, normal weight | Full platform colour |
+| `[new]` | Solid, thick | Bright/saturated platform colour |
+| `[changing]` | Dotted | Muted platform colour |
+| `[decommissioned]` | Dotted | Grey |
+
+### Connections
+
+```
+connect  <from>  ->   <to>  : <protocol>   # unidirectional
+connect  <from>  <->  <to>  : <protocol>   # bidirectional
+```
+
+- Protocol is a free-form label (e.g. `REST`, `SQS`, `SOAP`, `SFTP`, `Kafka`)
+- **Closed arrowhead** for all connections except those involving a `queue` endpoint
+- **Open arrowhead** when either the source or target is a `queue`
+
+### Groupings
+
+Deferred to v2. Syntax reserved:
+
+```
+group start "Group Name"
+group end "Group Name"
+```
+
+### DSL Example
+
+```
+@type     id
+@name     Current State Architecture
+@author   Jane Smith
+@date     2026-03-31
+
+system    OrderSvc        [aws]
+system    PaymentSvc      [azure]
+system    LegacyAuth      [on-prem]   [decommissioned]
+system    NewReporting    [aws]       [new]
+system    BillingSvc      [azure]     [changing]
+database  CustomerDB      [on-prem]
+queue     OrderQueue      [aws]
+
+connect   OrderSvc    ->   OrderQueue   : SQS
+connect   OrderQueue  ->   PaymentSvc   : SQS
+connect   OrderSvc   <->   PaymentSvc   : REST
+connect   LegacyAuth  ->   OrderSvc     : SOAP
+```
 
 ---
 

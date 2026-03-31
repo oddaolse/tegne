@@ -3,8 +3,10 @@ import { parse } from './parser';
 import { layout } from './layout';
 import { render, pageRect } from './renderer';
 import { attachDrag } from './drag';
-import { exportSVG, saveSD } from './export';
-import type { SDModel } from './types';
+import { idLayout } from './id-layout';
+import { idRender, attachIdDrag } from './id-renderer';
+import { exportSVG, saveSD, saveID } from './export';
+import type { SDModel, IDModel } from './types';
 
 const LS_KEY = 'tegne-dsl';
 
@@ -24,7 +26,7 @@ const canvasContainer = document.getElementById('canvas-container') as HTMLDivEl
 const svgEl           = document.getElementById('canvas')           as unknown as SVGSVGElement;
 const svg             = d3.select(svgEl);
 
-let currentModel: SDModel | null = null;
+let currentModel: SDModel | IDModel | null = null;
 
 // ── Zoom & pan ────────────────────────────────────────────────────────────────
 const ZOOM_STEP = 1.10;
@@ -69,13 +71,21 @@ function runRender(): void {
   }
 
   if (!model || errors.some(e => e.line > 0)) {
-    // Parse errors on specific lines — keep last valid diagram
     return;
   }
 
-  layout(model);
-  render(svg, model);
-  attachDrag(svg, model);
+  if (model.meta.diagramType === 'id') {
+    const idModel = model as IDModel;
+    idLayout(idModel);
+    idRender(svg, idModel);
+    attachIdDrag(svg, idModel);
+  } else {
+    const sdModel = model as SDModel;
+    layout(sdModel);
+    render(svg, sdModel);
+    attachDrag(svg, sdModel);
+  }
+
   currentModel = model;
   resetView();
 }
@@ -96,12 +106,16 @@ fileInput.addEventListener('change', () => {
     runRender();
   };
   reader.readAsText(file);
-  fileInput.value = '';   // allow re-opening same file
+  fileInput.value = '';
 });
 
 btnSave.addEventListener('click', () => {
   if (!currentModel) { alert('Nothing to save — render a model first.'); return; }
-  void saveSD(editor.value, currentModel);
+  if (currentModel.meta.diagramType === 'id') {
+    void saveID(editor.value, currentModel as IDModel);
+  } else {
+    void saveSD(editor.value, currentModel as SDModel);
+  }
 });
 
 btnRender.addEventListener('click', runRender);
@@ -119,7 +133,6 @@ btnZoomFit.addEventListener('click', resetView);
 // ── Scroll to pan ─────────────────────────────────────────────────────────────
 canvasContainer.addEventListener('wheel', (e) => {
   e.preventDefault();
-  // Scale scroll delta to SVG units; faster panning when zoomed in
   const sensitivity = 0.8 / zoomLevel;
   panX += e.deltaX * sensitivity;
   panY += e.deltaY * sensitivity;

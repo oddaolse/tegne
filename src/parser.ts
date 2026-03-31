@@ -4,6 +4,7 @@ import type {
   Position, Stock, Cloud, Auxiliary, Flow, Connector, ModelMeta,
 } from './types';
 import { THEMES } from './themes';
+import { parseID } from './id-parser';
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -41,10 +42,26 @@ function parseSourceList(
 }
 
 export function parse(dsl: string): ParseResult {
+  const lines = dsl.split('\n');
+
+  // Pre-scan for @type — dispatch to the appropriate parser
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('@type')) {
+      const value = trimmed.slice('@type'.length).trim();
+      if (value === 'id') return parseID(lines);
+      if (value === 'sd') break;  // fall through to SD parser
+      // Unknown type — let the SD parser emit the error
+      break;
+    }
+  }
+
+  return parseSD(lines);
+}
+
+function parseSD(lines: string[]): ParseResult {
   let idCounter = 0;
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`;
-
-  const lines    = dsl.split('\n');
   const errors: ParseError[] = [];
 
   const meta: ModelMeta = { date: todayISO() };
@@ -83,6 +100,14 @@ export function parse(dsl: string): ParseResult {
           }
           break;
         }
+        case '@type': {
+          if (value !== 'sd' && value !== 'id') {
+            errors.push({ line: lineNum, message: `@type must be "sd" or "id", got: "${value}"` });
+          }
+          // Value already consumed by pre-scan dispatch; no further action needed
+          break;
+        }
+
         case '@orientation': {
           if (value !== 'landscape' && value !== 'portrait') {
             errors.push({ line: lineNum, message: `@orientation must be landscape or portrait, got: "${value}"` });
