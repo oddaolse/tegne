@@ -22,7 +22,7 @@ Tegne supports multiple diagram types, selected via `@type` at the top of the DS
 | `@type` | Diagram | Status |
 |---|---|---|
 | `sd` | Forrester Stock-and-Flow (System Dynamics) | Implemented |
-| `id` | Integration Diagram (IT Architecture) | Planned |
+| `id` | Integration Diagram (IT Architecture) | Implemented |
 | *(absent)* | Defaults to `sd` | — |
 
 **What to build:** see [`requirements.md`](requirements.md)
@@ -57,18 +57,22 @@ tegne/
 ├── CLAUDE.md
 ├── requirements.md
 ├── src/
-│   ├── main.ts        # Entry point — wires editor, parser, layout, renderer
-│   ├── types.ts       # All model interfaces and type definitions
-│   ├── parser.ts      # DSL string → SDModel
-│   ├── layout.ts      # SDModel → initial x,y positions (heuristic)
-│   ├── renderer.ts    # SDModel + positions → SVG elements via D3
-│   ├── drag.ts        # D3 drag behaviour + connector redraw on move
-│   ├── export.ts      # SVG export and .sd file save
-│   ├── themes.ts      # Colour theme definitions (dark, light, tokyo)
-│   └── env.d.ts       # Type declarations for File System Access API
+│   ├── main.ts         # Entry point — wires editor, routes by @type
+│   ├── types.ts        # All model interfaces (SDModel, IDModel, shared)
+│   ├── parser.ts       # DSL entry point — pre-scans @type, dispatches
+│   ├── id-parser.ts    # ID DSL → IDModel
+│   ├── layout.ts       # SD auto-layout (heuristic)
+│   ├── id-layout.ts    # ID auto-layout (grid)
+│   ├── renderer.ts     # SD SVG rendering via D3
+│   ├── id-renderer.ts  # ID SVG rendering via D3 + drag
+│   ├── drag.ts         # SD drag behaviour
+│   ├── export.ts       # SVG export, .sd save, .id save
+│   ├── themes.ts       # Colour themes (dark, light, tokyo) — SD + ID slots
+│   └── env.d.ts        # Type declarations for File System Access API
 └── fixtures/
-    ├── population.sd       # Simple population model — all five element types
-    └── factory_dynamics.sd # Forrester production-distribution chain (bullwhip effect)
+    ├── population.sd           # SD: simple model — all five element types
+    ├── factory_dynamics.sd     # SD: Forrester production-distribution chain
+    └── integration_example.id  # ID: e-commerce platform — all element types and states
 ```
 
 ---
@@ -147,14 +151,17 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Zoom controls — `+` / `−` / `⊡` buttons at ×1.10 per step; label shows current %
 - [x] Scroll to pan — mouse wheel and trackpad pan the canvas in both axes
 
-### Integration Diagram (`@type id`) — planned, not yet implemented
-- [ ] `@type` directive — parser reads type first; defaults to `sd` if absent
-- [ ] Element types: `system`, `database`, `queue`
-- [ ] Platform colours: `[aws]`, `[azure]`, `[on-prem]`, `[gcp]`, `[oracle]`
-- [ ] Element states: default (current), `[new]`, `[changing]`, `[decommissioned]`
-- [ ] Label placement: inside for `system`, below for `database` and `queue`; override with `[label:inside]` / `[label:below]`
-- [ ] Connections: `connect A -> B : protocol`, `connect A <-> B : protocol`
-- [ ] Arrow styles: closed arrowhead for all connections; open arrowhead when either endpoint is a `queue`
+### Integration Diagram (`@type id`)
+- [x] `@type` directive — parser reads type first; defaults to `sd` if absent
+- [x] Element types: `system`, `database`, `queue`
+- [x] Platform colours: `[aws]`, `[azure]`, `[on-prem]`, `[gcp]`, `[oracle]`
+- [x] Element states: default (current), `[new]`, `[changing]`, `[decommissioned]`
+- [x] Label placement: inside for `system`, below for `database` and `queue`; override with `[label:inside]` / `[label:below]`
+- [x] Connections: `connect A -> B : protocol`, `connect A <-> B : protocol`
+- [x] Arrow styles: closed arrowhead for all connections; open arrowhead when either endpoint is a `queue`
+- [x] Full theme support — all three themes; tokyo renders neon with SVG glow filter
+- [x] `@theme` directive supported in ID diagrams
+- [x] Drag support — elements draggable; connections redraw on move
 - [ ] Groupings — deferred to v2
 
 ---

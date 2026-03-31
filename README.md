@@ -4,7 +4,9 @@
 
 A browser-based diagram editor for structural and visual modelling. Write a model in a plain-text DSL, render it as an interactive SVG, adjust the layout by dragging, then save or export.
 
-Currently supports **Forrester Stock-and-Flow diagrams** (System Dynamics). More diagram types are planned.
+Supports two diagram types:
+- **Stock-and-Flow diagrams** (`@type sd`) — Forrester/System Dynamics structural modelling
+- **Integration diagrams** (`@type id`) — IT architecture, showing systems, databases, queues, and their connections
 
 ---
 
@@ -23,34 +25,46 @@ No server required. Everything runs in the browser.
 ## Workflow
 
 1. **Write** a model in the DSL editor (left panel)
-2. **Open** an existing `.sd` file with the Open button — renders automatically
+2. **Open** an existing `.sd` or `.id` file — renders automatically
 3. **Fix errors** shown in the red panel below the editor — the last valid diagram stays on screen
-4. **Drag** any node to correct the auto-layout
+4. **Drag** any element to correct the auto-layout
 5. **Zoom** with `+` / `−` buttons or scroll the canvas; **⊡** resets to full page
-6. **Save** to write an `.sd` file that preserves both the model and your layout
+6. **Save** to write a file that preserves both the model and your layout
 7. **Export SVG** to download a standalone `.svg` for use in presentations or documents
 
 ---
 
-## DSL Syntax
+## Diagram Types
+
+Every file starts with `@type`. If absent, defaults to `sd`.
+
+| `@type` | Diagram | File extension |
+|---------|---------|---------------|
+| `sd` | Forrester Stock-and-Flow | `.sd` |
+| `id` | Integration diagram | `.id` |
+
+---
+
+## Stock-and-Flow Diagrams (`@type sd`)
+
+### DSL Syntax
 
 ```
-# Metadata (all optional — date defaults to today)
+@type         sd               # optional — sd is the default
 @name         My Model
 @version      1.0
 @date         2026-03-29
 @author       Jane Smith
-@theme        dark             # colour theme: dark (default), light, or tokyo
-@orientation  landscape        # A4 page size: landscape (default) or portrait
+@theme        dark             # dark (default), light, or tokyo
+@orientation  landscape        # landscape (default) or portrait
 
-# Elements
 stock  <name>
 cloud  <name> [source|sink]
 flow   <from> -> <to> : <label> (<+|->) [weak|medium|strong]
 aux    <name> [<- <source> (<+|->)[, <source2> (<+|->)] ...]
 connector <target> <- <source> (<+|->)[, <source2> (<+|->)]
 
-# Lines starting with # are comments and are ignored
+# Lines starting with # are comments
 ```
 
 ### Flow strength
@@ -69,11 +83,20 @@ connector <target> <- <source> (<+|->)[, <source2> (<+|->)]
 - `@position` lines are written by Save — do not edit manually
 - **Do not use parentheses in inline comments** on `flow`, `connector`, or `aux` lines — the parser locates the polarity by scanning for the last `(...)` on the line, so a comment like `# see loop (B1)` will be mistaken for the polarity token
 
----
+### Forrester Symbols
 
-## Example
+| Symbol | Shape | Meaning |
+|--------|-------|---------|
+| **Stock** | Rectangle | An accumulation — something measurable at a point in time. Changes only through flows. |
+| **Cloud** | Bumpy outline | Model boundary. A source produces material; a sink absorbs it. |
+| **Flow** | Pipe with ⊗ valve | A rate — material moving between nodes per unit of time. |
+| **Auxiliary** | Circle | An intermediate variable. Carries information, not material. |
+| **Connector** | Curved dashed arrow | A causal link. `(+)` same direction; `(−)` opposite direction. |
+
+### Example
 
 ```
+@type    sd
 @name    Population Dynamics
 @version 1.0
 @author  Jane Smith
@@ -94,17 +117,76 @@ connector death_rate <- carrying_capacity (-)
 
 ---
 
-## Forrester Symbols
+## Integration Diagrams (`@type id`)
 
-Tegne currently renders the five symbols defined by Jay Forrester for Stock-and-Flow diagrams.
+### Purpose
 
-| Symbol | Shape | Meaning |
-|--------|-------|---------|
-| **Stock** | Rectangle | An accumulation — something measurable at a point in time. Changes only through flows. |
-| **Cloud** | Bumpy outline | Model boundary. A source produces material; a sink absorbs it. |
-| **Flow** | Pipe with ⊗ valve | A rate — material moving between nodes per unit of time. |
-| **Auxiliary** | Circle | An intermediate variable. Carries information, not material. |
-| **Connector** | Curved dashed arrow | A causal link. `(+)` same direction; `(−)` opposite direction. |
+For IT Architects documenting integration landscapes — what systems exist, how they connect, what will change, what is being decommissioned, and what is new.
+
+### DSL Syntax
+
+```
+@type         id
+@name         My Architecture
+@version      1.0
+@author       Jane Smith
+@theme        dark             # dark (default), light, or tokyo
+@orientation  landscape
+
+# Elements: keyword  id  [platform]  [state]  [label:below]
+system    OrderSvc        [aws]
+system    PaymentSvc      [azure]
+system    LegacyAuth      [on-prem]   [decommissioned]
+system    NewReporting    [aws]       [new]
+system    BillingSvc      [azure]     [changing]
+database  CustomerDB      [on-prem]
+queue     OrderQueue      [aws]
+
+# Connections: from  direction  to  : protocol
+connect   OrderSvc    ->   OrderQueue   : SQS
+connect   OrderQueue  ->   PaymentSvc   : SQS
+connect   OrderSvc   <->   PaymentSvc   : REST
+connect   LegacyAuth  ->   OrderSvc     : SOAP
+```
+
+### Element types
+
+| Keyword | Shape | Default label |
+|---------|-------|--------------|
+| `system` | Rectangle | Inside |
+| `database` | Vertical drum | Below |
+| `queue` | Horizontal cylinder | Below |
+
+Override label placement with `[label:inside]` or `[label:below]`.
+
+### Platforms
+
+| Platform | Colour |
+|----------|--------|
+| `[aws]` | Orange |
+| `[azure]` | Blue |
+| `[on-prem]` | Olive green |
+| `[gcp]` | Green |
+| `[oracle]` | Red |
+
+### Lifecycle states
+
+| State | Border | Fill |
+|-------|--------|------|
+| *(absent — current)* | Solid | Full platform colour |
+| `[new]` | Solid, thick | Bright platform colour |
+| `[changing]` | Dashed | Muted platform colour |
+| `[decommissioned]` | Dotted | Grey |
+
+### Connections
+
+- `->` unidirectional, `<->` bidirectional
+- Closed arrowhead for system/database connections; open arrowhead when either endpoint is a queue
+- Protocol is a free-form label: `REST`, `SQS`, `SOAP`, `Kafka`, `SFTP`, etc.
+
+### Themes
+
+The `tokyo` theme renders integration diagrams with full neon colours — glowing platform fills on a near-black canvas.
 
 ---
 
@@ -112,17 +194,22 @@ Tegne currently renders the five symbols defined by Jay Forrester for Stock-and-
 
 ```
 src/
-  types.ts      — SDModel interfaces and type definitions
-  parser.ts     — DSL text → SDModel (with error collection)
-  layout.ts     — auto-positions nodes; honours @position overrides
-  renderer.ts   — SVG rendering via D3
-  drag.ts       — D3 drag; redraws connectors on move
-  export.ts     — SVG export and .sd file save
-  themes.ts     — colour theme definitions (dark, light, tokyo)
-  main.ts       — wires UI buttons and editor
+  types.ts        — all model interfaces and type definitions
+  parser.ts       — DSL entry point; dispatches to sd or id parser
+  parser.ts       — SD DSL → SDModel
+  id-parser.ts    — ID DSL → IDModel
+  layout.ts       — SD auto-layout
+  id-layout.ts    — ID auto-layout (grid)
+  renderer.ts     — SD SVG rendering via D3
+  id-renderer.ts  — ID SVG rendering via D3
+  drag.ts         — SD drag behaviour
+  export.ts       — SVG export and file save (.sd and .id)
+  themes.ts       — colour theme definitions (dark, light, tokyo)
+  main.ts         — wires UI; routes to correct pipeline by @type
 fixtures/
-  population.sd        — simple model covering all five element types
-  factory_dynamics.sd  — Forrester production-distribution chain (bullwhip effect)
+  population.sd           — SD: simple model, all five element types
+  factory_dynamics.sd     — SD: Forrester production-distribution chain
+  integration_example.id  — ID: e-commerce platform, all element types and states
 ```
 
 ---

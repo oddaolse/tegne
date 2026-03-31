@@ -1,7 +1,6 @@
 # Integration Diagram (`@type id`)
 
-> **Status: planned — not yet implemented.**
-> This file defines the specification to build from when implementation begins.
+> **Status: implemented.**
 
 ---
 
@@ -11,15 +10,16 @@ Allows IT Architects to draw integration landscape diagrams showing systems, dat
 
 ---
 
-## Parser Rules
+## Parser Rules (`src/id-parser.ts`)
 
-- `@type id` activates the integration diagram parser
+- `@type id` activates the ID parser via dispatch in `parser.ts`
 - `@type` absent defaults to `sd` — no breaking change to existing files
 - Unknown `@type` values produce a `ParseError` listing valid types (`sd`, `id`)
 - Line-by-line parsing, same approach as the SD parser
 - Keywords: `system`, `database`, `queue`, `connect`, `group` (reserved, v2 only)
-- Metadata directives shared with SD: `@name`, `@version`, `@date`, `@author`, `@orientation`
-- `@theme` does **not** apply to integration diagrams — colours are fixed by platform
+- Metadata directives: `@name`, `@version`, `@date`, `@author`, `@orientation`, `@theme`, `@position`
+- `@theme` supported — valid values: `dark`, `light`, `tokyo`
+- `@position` lines written by Save; read back to restore layout
 
 ---
 
@@ -36,7 +36,7 @@ queue     <id>  [<platform>]  [<state>]  [label:inside]
 - `[<state>]` — optional; one of: `new`, `changing`, `decommissioned`; absent = current
 - `[label:inside]` / `[label:below]` — optional label placement override
 
-### Default label placement (no override needed in most cases)
+### Default label placement
 
 | Element | Default |
 |---|---|
@@ -59,27 +59,52 @@ connect  <from>  <->  <to>  : <protocol>
 
 ---
 
-## SVG Rendering
+## SVG Rendering (`src/id-renderer.ts`)
 
 ### Shapes
 
 | Element | SVG |
 |---|---|
 | `system` | `<rect>` — 140×60px, rx=4 |
-| `database` | Vertical drum — two ellipses + rectangle body, approx 80×90px |
-| `queue` | Horizontal cylinder — two semicircles + rectangle body, approx 120×50px |
+| `database` | Vertical drum — rect body + two ellipse caps (80px wide, ~84px tall) |
+| `queue` | Horizontal cylinder — rect body + two ellipse caps (~130px wide, 40px tall) |
 
-### Platform Colours
+### Theme System
 
-| Platform | Fill (current) | Fill (changing) | Fill (new — saturated) |
-|---|---|---|---|
-| `aws` | `#FF9900` | `#CC7A00` at 60% opacity | `#FFB347` |
-| `azure` | `#0078D4` | `#005EA6` at 60% opacity | `#2B9AF3` |
-| `on-prem` | `#6B7C3A` | `#4E5B2A` at 60% opacity | `#8A9E4A` |
-| `gcp` | `#34A853` | `#267D3E` at 60% opacity | `#46C166` |
-| `oracle` | `#C74634` | `#963428` at 60% opacity | `#E05A45` |
+All colours come from `getTheme(model.meta.theme).id` — **no hardcoded colour values in `id-renderer.ts`**.
 
-Decommissioned fill: `#9E9E9E` (grey) regardless of platform.
+The `IDTheme` interface (defined in `themes.ts`) has slots for:
+- `canvasBg`, `borderStroke`, `platformColoredBorder`, `connStroke`
+- `labelInside`, `labelBelow`, `protocolLabel`
+- `glow` — when true, applies SVG `feGaussianBlur` glow filter to all elements
+- `platforms` — per-platform fill colours for all four states
+- `metaBox`
+
+When `platformColoredBorder` is true (tokyo), the border stroke matches the element's platform colour, enhancing the neon outline effect.
+
+### Platform Colours per Theme
+
+**dark:**
+| Platform | current | new | changing | decommissioned |
+|---|---|---|---|---|
+| aws | `#FF9900` | `#FFB84D` | `#CC7A00` | `#585b70` |
+| azure | `#0078D4` | `#2B9AF3` | `#005EA6` | `#585b70` |
+| on-prem | `#6B7C3A` | `#8A9E4A` | `#4E5B2A` | `#585b70` |
+| gcp | `#34A853` | `#46C166` | `#267D3E` | `#585b70` |
+| oracle | `#C74634` | `#E05A45` | `#963428` | `#585b70` |
+
+**light:** Deeper versions of the above for readability on light canvas.
+
+**tokyo (neon):**
+| Platform | current | new | changing | decommissioned |
+|---|---|---|---|---|
+| aws | `#FF6600` | `#FF8C1A` | `#803300` | `#2a2a3a` |
+| azure | `#00BFFF` | `#40CFFF` | `#006680` | `#2a2a3a` |
+| on-prem | `#ADFF2F` | `#C8FF5A` | `#5C8A00` | `#2a2a3a` |
+| gcp | `#00FF7F` | `#40FFAA` | `#007A3D` | `#2a2a3a` |
+| oracle | `#FF1744` | `#FF5252` | `#800020` | `#2a2a3a` |
+
+Tokyo canvas background: `#0d0d14`. Glow: `feGaussianBlur stdDeviation=3`.
 
 ### Border Styles
 
@@ -97,15 +122,21 @@ Decommissioned fill: `#9E9E9E` (grey) regardless of platform.
 | Either endpoint is a `queue` | Open arrowhead |
 | All other connections | Closed/filled arrowhead |
 
-### Connection Line
+---
 
-- Straight line between element edges (not bezier)
-- Protocol label centred on the line, small font, theme-neutral colour
-- Bidirectional: arrowheads at both ends
+## Layout (`src/id-layout.ts`)
+
+Simple grid: 4 columns, 220px horizontal spacing, 180px vertical spacing, starting at (200, 220). Honours `@position` overrides.
 
 ---
 
-## Data Model (to be added to `types.ts`)
+## Drag (`src/id-renderer.ts` — `attachIdDrag`)
+
+Uses `data-id` attribute lookup instead of D3 data binding (elements are appended imperatively, not via `.data().join()`). Updates `el.x`/`el.y` in the live model, then calls `idRedrawConnections`.
+
+---
+
+## Data Model (`src/types.ts`)
 
 ```typescript
 type Platform  = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
@@ -114,11 +145,12 @@ type Direction = 'unidirectional' | 'bidirectional';
 type LabelPos  = 'inside' | 'below';
 
 interface IDElement extends Position {
-  id:        string;
-  kind:      'system' | 'database' | 'queue';
-  platform:  Platform;
-  state:     IDState;
-  labelPos:  LabelPos;
+  kind:     'system' | 'database' | 'queue';
+  id:       string;
+  label:    string;
+  platform: Platform;
+  state:    IDState;
+  labelPos: LabelPos;
 }
 
 interface IDConnection {
@@ -131,10 +163,10 @@ interface IDConnection {
 }
 
 interface IDModel {
-  meta:       ModelMeta;
-  elements:   IDElement[];
-  connections: IDConnection[];
-  savedPositions: Record<string, Position>;
+  meta:            ModelMeta;   // meta.diagramType === 'id'
+  elements:        IDElement[];
+  connections:     IDConnection[];
+  savedPositions:  Record<string, Position>;
 }
 ```
 
@@ -149,12 +181,12 @@ group start "Group Name"
 group end "Group Name"
 ```
 
-In v1, `group` lines produce a `ParseError` with message: *"Groupings are not yet supported — planned for v2"*.
+In v1, `group` lines produce a `ParseError`: *"Groupings are not yet supported — planned for v2"*.
 
 ---
 
-## Fixtures (to be created)
+## Fixtures
 
 | File | Purpose |
 |---|---|
-| `fixtures/integration_example.id` | Simple integration diagram covering all element types and states |
+| `fixtures/integration_example.id` | E-commerce platform — all element types, states, and connection styles |
