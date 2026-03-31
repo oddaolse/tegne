@@ -1,0 +1,302 @@
+@name    Factory Dynamics
+@author  N.N.
+@version 1.0
+@theme   light
+
+# ============================================================
+# Factory Production and Distribution Model
+# Based on: Forrester, J.W. (1961). Industrial Dynamics. MIT Press.
+#
+# This model demonstrates the Bullwhip Effect: how small changes
+# in customer demand amplify into large oscillations in production,
+# inventory, and workforce throughout the supply chain.
+#
+# v1.2 — Structural corrections from deep logic review
+#
+#   1. effective_capacity auxiliary introduced.
+#      workforce and production_capacity both constrain production
+#      without either stock directly filling the other. The two-
+#      integrator chain is preserved: both slow stocks accumulate
+#      independently on their own timescales and feed production
+#      jointly. This is the structural basis of bullwhip amplitude.
+#
+#   2. desired_workforce auxiliary introduced.
+#      hire and fire are now two separate flows governed by a
+#      goal-gap structure. This correctly models both workforce
+#      expansion and workforce reduction — the second half of
+#      the bullwhip cycle. A single unidirectional hire_fire
+#      flow cannot produce overshoot-and-correct behaviour.
+#
+#   3. order_filling declared as an auxiliary (not a flow).
+#      sale (draining inventory) and shipment (clearing backlog)
+#      are co-flows governed by this single rate variable.
+#      One physical event — delivering a unit to a customer —
+#      must drain both stocks at exactly the same rate.
+#
+#   4. B5 (operational pressure loop) named and added to summary.
+#      delivery_delay driving desired_workforce is a structurally
+#      distinct balancing loop, independent of B4. Leaving it
+#      unnamed obscures the compound-overshoot mechanism.
+#
+#   5. R1 reframed as a structural note, not a feedback loop.
+#      No true positive loop exists in the connector graph.
+#      The bullwhip arises from two slow balancing loops (B4, B5)
+#      with independent inertia feeding a shared output node
+#      (effective_capacity), not from positive self-reinforcement.
+#
+#   6. All stale comments and internal contradictions removed.
+#
+# ── Feedback loop summary ────────────────────────────────────
+#
+#  B1  Inventory-price balance (balancing)
+#      inventory -(-) price -(-) orders -(+)-> backlog
+#      -(+)-> order_filling -(+)-> sale -(-) inventory
+#      Low inventory raises price; high price dampens demand.
+#
+#  B2  Customer delivery delay balance (balancing, with delay)
+#      backlog -(+)-> delivery_delay -(-) orders -(+)-> backlog
+#      Long customer wait times discourage new orders.
+#      The delay in this loop produces oscillation in isolation.
+#
+#  B3  Capacity investment loop (balancing, slow)
+#      price -(+)-> machine_orders -(+)-> machine_backlog
+#      -(+)-> machine_delivery -(+)-> production_capacity
+#      -(+)-> effective_capacity -(+)-> production
+#      -(+)-> inventory -(-) price
+#      High price triggers machine investment. New capacity
+#      eventually fills inventory and brings price down.
+#      Slowest loop; dominant source of long-period swings.
+#
+#  B4  Machine delivery delay compensation (balancing)
+#      machine_backlog -(+)-> machine_delivery_delay
+#      -(+)-> desired_workforce -(+)-> hire -(+)-> workforce
+#      -(+)-> effective_capacity -(+)-> production
+#      -(+)-> inventory -(-) price -(-) machine_orders
+#      -(-) machine_backlog
+#      Parallel fast closure via capacity:
+#      machine_backlog -(+)-> machine_delivery
+#      -(+)-> production_capacity -(-) desired_workforce
+#      -(-) hire; fire -(-)-> workforce
+#      While machines are on order the factory hires to bridge
+#      the gap. When machines arrive production_capacity rises,
+#      desired_workforce falls, and the fire rate exceeds the
+#      hire rate — workforce contracts. Both halves of the cycle
+#      are structurally present.
+#
+#  B5  Operational pressure loop (balancing, with delay)
+#      backlog -(+)-> delivery_delay -(+)-> desired_workforce
+#      -(+)-> hire -(+)-> workforce -(+)-> effective_capacity
+#      -(+)-> production -(+)-> inventory -(+)-> order_filling
+#      -(+)-> shipment -(-) backlog
+#      Customer backlog directly pressures hiring, independent
+#      of the machine delivery cycle (B4). Their combined and
+#      unsynchronised overshoot is the primary mechanism that
+#      amplifies oscillation beyond either loop alone.
+#
+#  Note on oscillation amplitude (structural, not a loop):
+#      workforce and production_capacity are two independent slow
+#      stocks, both feeding effective_capacity, both driven by
+#      delayed negative feedback (B4, B5). Neither stock can
+#      adjust instantaneously; their compound inertia means that
+#      corrective action continues long after the error that
+#      triggered it has passed. This is the structural origin of
+#      the Bullwhip Effect — not a positive feedback loop, but
+#      two slow integrators sharing an output node and driven by
+#      signals that arrive with different lags.
+#
+# ============================================================
+
+
+# ── Stocks (accumulators) ─────────────────────────────────────
+#
+# Stocks are the memory of the system. They cannot change
+# instantaneously — only flows can alter them over time.
+# This inertia is what creates delay and oscillation.
+
+# Central warehouse stock. Filled by production, depleted by sale.
+# Key junction between supply-side and demand-side dynamics.
+stock inventory
+
+# Unfulfilled customer orders awaiting delivery.
+# Rises as orders arrive, falls as shipments are made.
+# Drives customer delivery delay (B2) and operational hiring (B5).
+stock backlog
+
+# Installed production capacity — machines and infrastructure.
+# Grows as machine deliveries arrive.
+# One of two independent slow stocks feeding effective_capacity.
+stock production_capacity
+
+# Workforce level. Slowest-adjusting stock: hiring, onboarding
+# and training take months; redundancy takes time too.
+# Second independent slow stock feeding effective_capacity.
+stock workforce
+
+# Machines on order but not yet delivered.
+# Orders accumulate here and drain into production_capacity
+# as machines arrive. The lag between order and arrival is
+# machine_delivery_delay — the core delay in loops B3 and B4.
+stock machine_backlog
+
+
+# ── Clouds (model boundaries) ────────────────────────────────
+#
+# Clouds are model boundaries: inexhaustible sources or
+# absorbing sinks whose internal dynamics are not modelled.
+
+cloud production_source  [source]  # Raw materials / inputs to production
+cloud sales_sink         [sink]    # Goods sold leave the system here
+cloud orders_source      [source]  # New customer orders enter here
+cloud delivery_sink      [sink]    # Fulfilled orders leave the model boundary
+cloud machine_capital    [source]  # Capital market — funds machine purchases
+cloud labor_pool         [source]  # Labour market — workers available for hire
+
+
+# ── Flows (rates) ─────────────────────────────────────────────
+#
+# Flows are the only mechanism by which stocks change.
+# Each valve (⊗) is where causal feedback from connectors acts.
+
+# Rate at which finished goods enter inventory.
+# Governed by effective_capacity and price signals (B1, B3).
+flow production_source -> inventory : production (+) strong
+
+# Rate at which inventory is consumed by customer deliveries.
+# Governed by the order_filling auxiliary — same physical event
+# as shipment. Both must drain at exactly the same rate.
+flow inventory -> sales_sink : sale (-) medium
+
+# Rate at which new customer orders accumulate in backlog.
+# Sensitive to price (B1) and expected delivery delay (B2).
+flow orders_source -> backlog : orders (+) medium
+
+# Rate at which the customer backlog is cleared through shipments.
+# Governed by the order_filling auxiliary — same physical event
+# as sale. Both must drain at exactly the same rate.
+flow backlog -> delivery_sink : shipment (-) medium
+
+# Rate at which new machine orders are placed with suppliers.
+# Driven by price signals and current capacity adequacy (B3).
+# Flows into machine_backlog, not directly to production_capacity.
+flow machine_capital -> machine_backlog : machine_orders (+) weak
+
+# Rate at which ordered machines are delivered and installed.
+# Drains machine_backlog; fills production_capacity.
+# The lag between machine_orders and machine_delivery is
+# machine_delivery_delay — core delay in loops B3 and B4.
+flow machine_backlog -> production_capacity : machine_delivery (+) weak
+
+# Hiring flow: draws workers from the labour pool.
+# Active when desired_workforce exceeds current workforce.
+# Rate governed by the gap (desired_workforce - workforce).
+flow labor_pool -> workforce : hire (+) weak
+
+# Firing flow: returns surplus workers to the labour pool.
+# Active when current workforce exceeds desired_workforce.
+# Rate governed by the gap (workforce - desired_workforce).
+# This flow is essential: without it the model cannot reproduce
+# the second half of the bullwhip cycle — the over-correction.
+flow workforce -> labor_pool : fire (-) weak
+
+
+# ── Auxiliary variables ───────────────────────────────────────
+#
+# Auxiliaries carry information, not material. They translate
+# stock levels into signals that drive flow rates.
+
+# Market price. Rises when inventory is scarce, falls when abundant.
+# Central signal variable linking inventory to ordering (B1)
+# and capital investment (B3).
+aux price <- inventory (-)
+
+# Customer-facing delivery lead time, derived from backlog level.
+# When this rises, customers reduce new orders (B2) and
+# operational hiring pressure increases (B5).
+aux delivery_delay <- backlog (+)
+
+# Factory-facing delivery lead time for capital equipment.
+# Derived from machine_backlog level.
+# When machines are slow to arrive, hiring is triggered to
+# compensate for the missing mechanical capacity (B4).
+# When machines finally arrive and production_capacity rises,
+# desired_workforce falls and firing begins.
+aux machine_delivery_delay <- machine_backlog (+)
+
+# Binding production constraint — the lesser of machine capacity
+# and labour-constrained throughput. If either is insufficient,
+# the actual production rate is limited accordingly.
+# Structurally critical: both slow stocks (production_capacity,
+# workforce) feed production here without either conflating into
+# the other. The two-integrator chain is fully preserved.
+aux effective_capacity <- production_capacity (+)
+connector effective_capacity <- workforce (+)
+
+# Target workforce level, synthesised from operational signals.
+# Rises when delivery or machine delivery delays indicate under-
+# capacity; falls when production_capacity is already adequate.
+# Governs both the hire and fire flows via a goal-gap structure:
+#   hire rate ∝ max(0,  desired_workforce − workforce)
+#   fire rate ∝ max(0,  workforce − desired_workforce)
+aux desired_workforce <- delivery_delay (+)
+connector desired_workforce <- machine_delivery_delay (+)
+connector desired_workforce <- production_capacity (-)
+
+# Unified order-fulfilment rate.
+# One physical transaction — delivering a unit — simultaneously
+# removes stock from inventory (sale) and removes the entry from
+# backlog (shipment). Both flows are governed by this single rate.
+# Inventory availability sets an upper bound; backlog urgency sets
+# the operational pressure. Neither alone is sufficient.
+aux order_filling <- inventory (+)
+connector order_filling <- backlog (+)
+
+
+# ── Causal connectors ─────────────────────────────────────────
+#
+# Connectors carry information between elements.
+# (+) source and target move in the same direction.
+# (-) source and target move in opposite directions.
+
+# B1 — Inventory-price balance
+connector orders         <- price (-)               # High price dampens customer demand B1
+connector machine_orders <- price (+)               # High price makes investment attractive B3
+
+# B2 — Customer delivery delay balance
+connector orders <- delivery_delay (-)              # Long wait discourages new orders B2
+
+# B3 — Capacity investment loop
+connector production     <- effective_capacity (+)  # Effective capacity governs production rate
+connector production     <- price (+)               # Price signal drives short-run output push
+connector machine_orders <- production_capacity (-) # Adequate installed capacity dampens orders
+
+# B4 — Machine delivery delay compensation
+# desired_workforce auxiliary carries the signal; hire/fire flows act on the gap.
+connector hire <- desired_workforce (+)             # Desired > actual → hire rate rises
+connector hire <- workforce (-)                     # Gap closes as workforce accumulates
+connector fire <- workforce (+)                     # Actual > desired → fire rate rises
+connector fire <- desired_workforce (-)             # High desired reduces firing pressure
+connector machine_delivery <- machine_backlog (+)   # Backlog size drives delivery rate B3, B4
+
+# B5 — Operational pressure (delivery_delay → desired_workforce in aux definition above)
+
+# Order fulfilment co-flows — one rate governs both stocks
+connector sale     <- order_filling (+)             # Inventory drain equals order_filling rate
+connector shipment <- order_filling (+)             # Backlog drain equals order_filling rate
+
+@position inventory 267 510
+@position backlog 975 258
+@position production_capacity 1461 842
+@position workforce 1007 762
+@position machine_backlog 1204 210
+@position production_source 251 258
+@position sales_sink 482 252
+@position orders_source 1081 377
+@position delivery_sink 622 264
+@position machine_capital 1511 85
+@position labor_pool 660 737
+@position price 506 595
+@position delivery_delay 516 490
+@position machine_delivery_delay 115 199
+@position effective_capacity 699 402
+@position desired_workforce 378 744
+@position order_filling 622 127

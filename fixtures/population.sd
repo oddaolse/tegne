@@ -1,0 +1,26 @@
+@name    Simple Population Model
+@version 1.0
+@author  Test Fixture
+
+@theme light
+
+# Covers all five element types: stock, cloud, flow, aux, connector
+# Use this fixture to verify basic rendering correctness
+
+stock Population
+
+cloud Births [source]
+cloud Deaths [sink]
+
+flow Births -> Population : birth_rate (+) strong
+flow Population -> Deaths : death_rate (-) weak
+
+aux carrying_capacity <- Population (-)
+
+connector birth_rate <- Population (+)
+connector death_rate <- carrying_capacity (-)
+
+@position Population 223 640
+@position Births 638 625
+@position Deaths 633 433
+@position carrying_capacity 249 449
