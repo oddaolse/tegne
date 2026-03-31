@@ -3,7 +3,7 @@ import { pageRect } from './renderer';
 
 // ── SVG Export ────────────────────────────────────────────────────────────────
 
-export function exportSVG(svgEl: SVGSVGElement, model: SDModel): void {
+export async function exportSVG(svgEl: SVGSVGElement, model: SDModel): Promise<void> {
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
 
   // Always export at full page zoom (ignore current pan/zoom state)
@@ -18,7 +18,9 @@ export function exportSVG(svgEl: SVGSVGElement, model: SDModel): void {
   // Ensure correct XML namespace declaration
   const svgStr = raw.startsWith('<?xml') ? raw : `<?xml version="1.0" encoding="utf-8"?>\n${raw}`;
 
-  download(svgStr, 'image/svg+xml', filenameFor(model, 'svg'));
+  await saveAs(svgStr, 'image/svg+xml', filenameFor(model, 'svg'), [
+    { description: 'SVG files', accept: { 'image/svg+xml': ['.svg'] } },
+  ]);
 }
 
 // ── SD File Save (DSL + positions) ───────────────────────────────────────────

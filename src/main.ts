@@ -128,7 +128,7 @@ canvasContainer.addEventListener('wheel', (e) => {
 
 btnExport.addEventListener('click', () => {
   if (!currentModel) { alert('Nothing to export — render a model first.'); return; }
-  exportSVG(svgEl, currentModel);
+  void exportSVG(svgEl, currentModel);
 });
 
 // ── Restore from localStorage ─────────────────────────────────────────────────
