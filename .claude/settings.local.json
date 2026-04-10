@@ -6,7 +6,8 @@
       "WebSearch",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:gitlab.com)"
+      "WebFetch(domain:gitlab.com)",
+      "WebFetch(domain:mermaid.js.org)"
     ]
   }
 }

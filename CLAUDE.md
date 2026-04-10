@@ -146,8 +146,9 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Save As — uses File System Access API for native directory/filename dialog (SVG export too)
 - [x] `@theme` directive — selects colour theme (`dark`, `light`, `tokyo`)
 - [x] `themes.ts` — all colours defined per theme; no hardcoded colour values in renderer
-- [x] `@orientation` directive — controls A4 page size (landscape default / portrait)
-- [x] Canvas = A4 page — viewport is sized to the page; no dead space outside
+- [x] `@orientation` directive — controls page orientation (landscape default / portrait)
+- [x] `@size` directive — selects paper size (`a4` default, `a3`, `a2`, `a1`, `a0`)
+- [x] Canvas = page — viewport is sized to the page; no dead space outside
 - [x] Zoom controls — `+` / `−` / `⊡` buttons at ×1.10 per step; label shows current %
 - [x] Scroll to pan — mouse wheel and trackpad pan the canvas in both axes
 
@@ -162,7 +163,7 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Full theme support — all three themes; tokyo renders neon with SVG glow filter
 - [x] `@theme` directive supported in ID diagrams
 - [x] Drag support — elements draggable; connections redraw on move
-- [ ] Groupings — deferred to v2
+- [x] Groupings — `group <id> <label> [label:corner]` / `end` blocks; named boundary rect; draggable as a unit
 
 ---
 

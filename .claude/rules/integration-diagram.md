@@ -139,10 +139,11 @@ Uses `data-id` attribute lookup instead of D3 data binding (elements are appende
 ## Data Model (`src/types.ts`)
 
 ```typescript
-type Platform  = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
-type IDState   = 'current' | 'new' | 'changing' | 'decommissioned';
-type Direction = 'unidirectional' | 'bidirectional';
-type LabelPos  = 'inside' | 'below';
+type Platform    = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
+type IDState     = 'current' | 'new' | 'changing' | 'decommissioned';
+type Direction   = 'unidirectional' | 'bidirectional';
+type LabelPos    = 'inside' | 'below';
+type LabelCorner = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
 
 interface IDElement extends Position {
   kind:     'system' | 'database' | 'queue';
@@ -162,26 +163,60 @@ interface IDConnection {
   protocol:  string;
 }
 
+interface IDGroup {
+  kind:        'group';
+  id:          string;
+  label:       string;
+  members:     string[];       // element ids in declaration order
+  labelCorner: LabelCorner;
+}
+
 interface IDModel {
   meta:            ModelMeta;   // meta.diagramType === 'id'
   elements:        IDElement[];
   connections:     IDConnection[];
+  groups:          IDGroup[];
   savedPositions:  Record<string, Position>;
 }
 ```
 
 ---
 
-## Groupings — v2
+## Groupings
 
-Reserved syntax, not parsed in v1:
+Named boundary rectangles drawn behind their member elements.
+
+### Syntax
 
 ```
-group start "Group Name"
-group end "Group Name"
+group <id> <label> [label:upper-left|upper-right|lower-left|lower-right]
+  system/database/queue declarations...
+end
 ```
 
-In v1, `group` lines produce a `ParseError`: *"Groupings are not yet supported — planned for v2"*.
+- `<id>` — unique identifier (no spaces)
+- `<label>` — display text (everything between id and first `[`); defaults to id if omitted
+- `[label:*]` — corner for the label; default `upper-right`
+- Elements declared inside the block are added to the group's `members` list
+- Groups cannot be nested
+- An element can belong to at most one group
+- `end` without a matching `group` is a `ParseError`
+- A `group` not closed before EOF is a post-parse `ParseError`
+
+### Rendering
+
+- A dashed rounded rectangle (`rx=8`, `stroke-dasharray: 8,4`) drawn **behind** elements and connections
+- Label rendered in the specified corner in italic `Courier New` at 12px
+- All colours from `theme.id.group` — no hardcoded values in `id-renderer.ts`
+- Group rect is derived from the bounding box of member elements + `GROUP_PADDING=40` on all sides
+
+### Drag
+
+`attachGroupDrag` (exported from `id-renderer.ts`, called from `main.ts`) attaches a D3 drag handler to `g.id-group` elements. Dragging applies `event.dx`/`event.dy` to every member element, updates `model.savedPositions` for each, updates member transforms, then calls `idRedrawConnections` (which also calls `updateGroupRects`).
+
+### Layout
+
+Group members are placed contiguously in the grid. If a group would spill across a row boundary, it is pushed to the next row so all members sit in a single horizontal band. Ungrouped elements follow after all groups.
 
 ---
 
@@ -189,4 +224,5 @@ In v1, `group` lines produce a `ParseError`: *"Groupings are not yet supported �
 
 | File | Purpose |
 |---|---|
-| `fixtures/integration_example.id` | E-commerce platform — all element types, states, and connection styles |
+| `fixtures/integration_example.id` | E-commerce platform — all element types, states, and connection styles; two groups |
+| `fixtures/banking_platform.id` | Digital banking platform — four groups covering all label corners, all five platforms, all four states, all three element types, ungrouped elements for contrast |

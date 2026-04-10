@@ -27,7 +27,8 @@ Optional lines, conventionally at the top. All fields are optional except `date`
 @date         <date string>
 @author       <author name>
 @theme        <theme name>        ← colour theme: dark (default) | light | tokyo
-@orientation  landscape|portrait  ← A4 page size; default: landscape
+@orientation  landscape|portrait  ← page orientation; default: landscape
+@size         a4|a3|a2|a1|a0     ← paper size; default: a4
 ```
 
 ### Layout Position Directives
@@ -254,12 +255,19 @@ connect  <from>  <->  <to>  : <protocol>   # bidirectional
 
 ### Groupings
 
-Deferred to v2. Syntax reserved:
+Named boundary rectangles that visually cluster related elements.
 
 ```
-group start "Group Name"
-group end "Group Name"
+group <id> <label> [label:upper-left|upper-right|lower-left|lower-right]
+  system/database/queue declarations...
+end
 ```
+
+- Elements declared inside the block belong to the group
+- The group renders as a dashed rounded rectangle behind its members
+- The label appears in the specified corner (default: `upper-right`)
+- Dragging the group background moves all members together
+- Groups cannot be nested; an element can belong to at most one group
 
 ### DSL Example
 
