@@ -2,15 +2,23 @@
 @name     E-Commerce Platform
 @version  1.0
 @author   Jane Smith
-@date     2026-03-31
+@date     2026-04-10
 @theme    light
 
-# Current systems
+# AWS group
+group aws_group AWS [label:upper-right]
 system    WebApp          [aws]
 system    OrderSvc        [aws]
+system    NewReporting    [aws]       [new]
+end
+
+# Azure group
+group azure_group Azure [label:upper-right]
 system    PaymentSvc      [azure]
 system    BillingSvc      [azure]     [changing]
-system    NewReporting    [aws]       [new]
+end
+
+# Ungrouped systems
 system    LegacyAuth      [on-prem]   [decommissioned]
 
 # Data stores
@@ -30,13 +38,3 @@ connect   OrderSvc        ->    OrderDB         : JDBC
 connect   OrderSvc        ->    NewReporting    : REST
 connect   BillingSvc      ->    PaymentSvc      : REST
 connect   LegacyAuth      ->    WebApp          : SOAP
-
-@position WebApp 196 394
-@position OrderSvc 449 389
-@position PaymentSvc 701 388
-@position BillingSvc 947 389
-@position NewReporting 491 552
-@position LegacyAuth 159 570
-@position CustomerDB 332 554
-@position OrderDB 313 249
-@position OrderQueue 558 240

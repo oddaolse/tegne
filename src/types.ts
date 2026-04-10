@@ -10,7 +10,8 @@ export interface ModelMeta {
   date:        string;   // ISO date; auto-filled if @date absent
   author?:     string;
   theme?:       string;                // theme name (dark | light | tokyo); default: dark
-  orientation?: 'landscape'|'portrait'; // A4 page guide orientation; default: landscape
+  orientation?: 'landscape'|'portrait'; // page orientation; default: landscape
+  size?:        'a4'|'a3'|'a2'|'a1'|'a0'; // paper size; default: a4
 }
 
 export interface Position { x: number; y: number; }
@@ -61,10 +62,11 @@ export interface ParseResult {
 
 // ── Integration Diagram types ─────────────────────────────────────────────────
 
-export type Platform  = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
-export type IDState   = 'current' | 'new' | 'changing' | 'decommissioned';
-export type Direction = 'unidirectional' | 'bidirectional';
-export type LabelPos  = 'inside' | 'below';
+export type Platform    = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
+export type IDState     = 'current' | 'new' | 'changing' | 'decommissioned';
+export type Direction   = 'unidirectional' | 'bidirectional';
+export type LabelPos    = 'inside' | 'below';
+export type LabelCorner = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
 
 export interface IDElement extends Position {
   kind:     'system' | 'database' | 'queue';
@@ -84,9 +86,18 @@ export interface IDConnection {
   protocol:  string;
 }
 
+export interface IDGroup {
+  kind:        'group';
+  id:          string;
+  label:       string;
+  members:     string[];       // element ids in declaration order
+  labelCorner: LabelCorner;
+}
+
 export interface IDModel {
   meta:           ModelMeta;   // meta.diagramType === 'id'
   elements:       IDElement[];
   connections:    IDConnection[];
+  groups:         IDGroup[];
   savedPositions: Record<string, Position>;
 }

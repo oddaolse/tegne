@@ -7,7 +7,7 @@ export async function exportSVG(svgEl: SVGSVGElement, model: SDModel | IDModel):
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
 
   // Always export at full page zoom (ignore current pan/zoom state)
-  const p = pageRect(model.meta.orientation);
+  const p = pageRect(model.meta.orientation, model.meta.size);
   clone.setAttribute('viewBox', `${p.x} ${p.y} ${p.w} ${p.h}`);
 
   // Strip data-* attributes
@@ -34,9 +34,12 @@ export async function saveSD(dslText: string, model: SDModel): Promise<void> {
     .trimEnd();
 
   const allNodes: Node[] = [...model.stocks, ...model.clouds, ...model.auxiliaries];
-  const posLines = allNodes
+  let posLines = allNodes
     .map(n => `@position ${n.id} ${Math.round(n.x)} ${Math.round(n.y)}`)
     .join('\n');
+
+  const metaPos = model.savedPositions['__meta__'];
+  if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
 
   const content = `${stripped}\n\n${posLines}\n`;
 
@@ -54,9 +57,12 @@ export async function saveID(dslText: string, model: IDModel): Promise<void> {
     .join('\n')
     .trimEnd();
 
-  const posLines = model.elements
+  let posLines = model.elements
     .map(e => `@position ${e.id} ${Math.round(e.x)} ${Math.round(e.y)}`)
     .join('\n');
+
+  const metaPos = model.savedPositions['__meta__'];
+  if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
 
   const content = `${stripped}\n\n${posLines}\n`;
 

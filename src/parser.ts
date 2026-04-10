@@ -117,6 +117,16 @@ function parseSD(lines: string[]): ParseResult {
           break;
         }
 
+        case '@size': {
+          const valid = ['a4', 'a3', 'a2', 'a1', 'a0'];
+          if (!valid.includes(value.toLowerCase())) {
+            errors.push({ line: lineNum, message: `@size must be one of: ${valid.join(', ')}, got: "${value}"` });
+          } else {
+            meta.size = value.toLowerCase() as ModelMeta['size'];
+          }
+          break;
+        }
+
         case '@position': {
           const parts = value.split(/\s+/);
           if (parts.length !== 3) {

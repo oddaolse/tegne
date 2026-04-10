@@ -3,18 +3,25 @@ import type { SDModel, Node, Flow, Connector, Position, FlowStrength } from './t
 import { getTheme } from './themes';
 import type { Theme } from './themes';
 
-// ── Canvas constants ──────────────────────────────────────────────────────────
-const VB_W = 1600;
-const VB_H = 900;
+// ── Page dimensions ───────────────────────────────────────────────────────────
+// All sizes use the same physical scale (≈4.175 SVG units/mm, from A4 landscape).
+// Each step is ×√2 in both dimensions.  Portrait = landscape with w/h swapped.
+// x=30, y=12 margin is consistent across all sizes.
+const PAGE_MARGIN = { x: 30, y: 12 } as const;
 
-// ── A4 page guide dimensions ──────────────────────────────────────────────────
-// Computed per render from model.meta.orientation (default: landscape).
-// Stripped from SVG export.
-const A4_LANDSCAPE = { x: 30, y: 12, w: 1240, h: 876  } as const; // 1240/876  ≈ 297/210
-const A4_PORTRAIT  = { x: 30, y: 12, w: 619,  h: 876  } as const; // 619/876   ≈ 210/297
+const PAGE_RECTS = {
+  a4: { landscape: { ...PAGE_MARGIN, w: 1240, h:  876 }, portrait: { ...PAGE_MARGIN, w:  876, h: 1240 } },
+  a3: { landscape: { ...PAGE_MARGIN, w: 1754, h: 1240 }, portrait: { ...PAGE_MARGIN, w: 1240, h: 1754 } },
+  a2: { landscape: { ...PAGE_MARGIN, w: 2480, h: 1754 }, portrait: { ...PAGE_MARGIN, w: 1754, h: 2480 } },
+  a1: { landscape: { ...PAGE_MARGIN, w: 3508, h: 2480 }, portrait: { ...PAGE_MARGIN, w: 2480, h: 3508 } },
+  a0: { landscape: { ...PAGE_MARGIN, w: 4960, h: 3508 }, portrait: { ...PAGE_MARGIN, w: 3508, h: 4960 } },
+} as const;
 
-export function pageRect(orientation?: 'landscape' | 'portrait') {
-  return orientation === 'portrait' ? A4_PORTRAIT : A4_LANDSCAPE;
+export const VALID_PAGE_SIZES = Object.keys(PAGE_RECTS) as Array<keyof typeof PAGE_RECTS>;
+
+export function pageRect(orientation?: string, size?: string) {
+  const s = (size && size in PAGE_RECTS) ? size as keyof typeof PAGE_RECTS : 'a4';
+  return orientation === 'portrait' ? PAGE_RECTS[s].portrait : PAGE_RECTS[s].landscape;
 }
 
 // ── Node geometry ─────────────────────────────────────────────────────────────
@@ -381,14 +388,18 @@ function drawMetaBox(
   const LINE_H = 17;
   const BOX_W  = 230;
   const BOX_H  = lines.length * LINE_H + PAD * 2;
-  const p      = pageRect(model.meta.orientation);
-  const BOX_X  = p.x + 16;
-  const BOX_Y  = p.y + p.h - BOX_H - 16;
+  const p      = pageRect(meta.orientation, meta.size);
+  const saved  = model.savedPositions['__meta__'];
+  const BOX_X  = saved?.x ?? (p.x + 16);
+  const BOX_Y  = saved?.y ?? (p.y + p.h - BOX_H - 16);
 
-  const g = svg.append('g').attr('class', 'meta-box');
+  const g = svg.append('g')
+    .attr('class', 'meta-box')
+    .attr('transform', `translate(${BOX_X},${BOX_Y})`)
+    .style('cursor', 'move');
 
   g.append('rect')
-    .attr('x', BOX_X).attr('y', BOX_Y)
+    .attr('x', 0).attr('y', 0)
     .attr('width', BOX_W).attr('height', BOX_H)
     .attr('rx', 4)
     .attr('fill', theme.metaBox.fill)
@@ -397,13 +408,37 @@ function drawMetaBox(
 
   lines.forEach((text, i) => {
     g.append('text')
-      .attr('x', BOX_X + PAD)
-      .attr('y', BOX_Y + PAD + i * LINE_H + 11)
+      .attr('x', PAD)
+      .attr('y', PAD + i * LINE_H + 11)
       .attr('fill', theme.metaBox.text)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '11px')
       .text(text);
   });
+}
+
+export function attachMetaBoxDrag(
+  svg: SvgSel,
+  model: { savedPositions: Record<string, Position> },
+  onDragEnd?: () => void,
+): void {
+  let cx = 0, cy = 0;
+  const drag = d3.drag<SVGGElement, unknown>()
+    .on('start', function () {
+      const t = d3.select(this).attr('transform') ?? '';
+      const m = t.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      cx = m ? parseFloat(m[1]) : 0;
+      cy = m ? parseFloat(m[2]) : 0;
+    })
+    .on('drag', function (event) {
+      const ev = event as d3.D3DragEvent<SVGGElement, unknown, unknown>;
+      cx += ev.dx;
+      cy += ev.dy;
+      model.savedPositions['__meta__'] = { x: Math.round(cx), y: Math.round(cy) };
+      d3.select(this).attr('transform', `translate(${cx},${cy})`);
+    })
+    .on('end', () => onDragEnd?.());
+  svg.select<SVGGElement>('g.meta-box').call(drag);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -416,11 +451,12 @@ export function render(svg: SvgSel, model: SDModel): void {
   svg.selectAll('*').remove();
   defineMarkers(svg, theme);
 
-  // Canvas background (full viewBox rect — exported with SVG)
+  // Canvas background — sized to cover the full page + margin
+  const p = pageRect(model.meta.orientation, model.meta.size);
   svg.append('rect')
     .attr('class', 'canvas-bg')
     .attr('x', 0).attr('y', 0)
-    .attr('width', VB_W).attr('height', VB_H)
+    .attr('width', p.x + p.w + 100).attr('height', p.y + p.h + 100)
     .attr('fill', theme.canvasBg);
 
   drawFlows(svg, model, theme);

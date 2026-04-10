@@ -1,6 +1,6 @@
 import type {
-  IDModel, IDElement, IDConnection, ParseError, ParseResult,
-  Platform, IDState, Direction, LabelPos, ModelMeta, Position,
+  IDModel, IDElement, IDConnection, IDGroup, ParseError, ParseResult,
+  Platform, IDState, Direction, LabelPos, LabelCorner, ModelMeta, Position,
 } from './types';
 import { THEMES } from './themes';
 
@@ -23,7 +23,9 @@ export function parseID(lines: string[]): ParseResult {
   const meta: ModelMeta = { date: todayISO(), diagramType: 'id' };
   const elements:    IDElement[]    = [];
   const connections: IDConnection[] = [];
+  const groups:      IDGroup[]      = [];
   const savedPositions: Record<string, Position> = {};
+  let currentGroup: IDGroup | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
@@ -57,6 +59,16 @@ export function parseID(lines: string[]): ParseResult {
             errors.push({ line: lineNum, message: `@orientation must be landscape or portrait, got: "${value}"` });
           } else {
             meta.orientation = value;
+          }
+          break;
+        }
+
+        case '@size': {
+          const valid = ['a4', 'a3', 'a2', 'a1', 'a0'];
+          if (!valid.includes(value.toLowerCase())) {
+            errors.push({ line: lineNum, message: `@size must be one of: ${valid.join(', ')}, got: "${value}"` });
+          } else {
+            meta.size = value.toLowerCase() as ModelMeta['size'];
           }
           break;
         }
@@ -131,6 +143,7 @@ export function parseID(lines: string[]): ParseResult {
         }
 
         elements.push({ kind, id, label: id, platform, state, labelPos, x: 0, y: 0 });
+        if (currentGroup) currentGroup.members.push(id);
         break;
       }
 
@@ -177,9 +190,45 @@ export function parseID(lines: string[]): ParseResult {
         break;
       }
 
-      case 'group':
-        errors.push({ line: lineNum, message: `Groupings are not yet supported — planned for v2` });
+      case 'group': {
+        if (currentGroup) {
+          errors.push({ line: lineNum, message: `Cannot nest groups — already inside group "${currentGroup.id}"` });
+          break;
+        }
+        const bracketStart = rest.indexOf('[');
+        const beforeBrackets = (bracketStart === -1 ? rest : rest.slice(0, bracketStart)).trim();
+        const spaceIdx = beforeBrackets.indexOf(' ');
+        const groupId  = spaceIdx === -1 ? beforeBrackets : beforeBrackets.slice(0, spaceIdx).trim();
+        const rawLabel = spaceIdx === -1 ? ''              : beforeBrackets.slice(spaceIdx + 1).trim();
+
+        if (!groupId) {
+          errors.push({ line: lineNum, message: 'group requires an id' });
+          break;
+        }
+
+        let labelCorner: LabelCorner = 'upper-right';
+        const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim().toLowerCase());
+        for (const b of brackets) {
+          if      (b === 'label:upper-left')  labelCorner = 'upper-left';
+          else if (b === 'label:upper-right') labelCorner = 'upper-right';
+          else if (b === 'label:lower-left')  labelCorner = 'lower-left';
+          else if (b === 'label:lower-right') labelCorner = 'lower-right';
+          else errors.push({ line: lineNum, message: `Unknown group qualifier: [${b}]. Valid: [label:upper-left], [label:upper-right], [label:lower-left], [label:lower-right]` });
+        }
+
+        currentGroup = { kind: 'group', id: groupId, label: rawLabel || groupId, members: [], labelCorner };
         break;
+      }
+
+      case 'end': {
+        if (!currentGroup) {
+          errors.push({ line: lineNum, message: '"end" without a matching "group"' });
+          break;
+        }
+        groups.push(currentGroup);
+        currentGroup = null;
+        break;
+      }
 
       default:
         errors.push({ line: lineNum, message: `Unknown keyword: "${keyword}"` });
@@ -187,6 +236,10 @@ export function parseID(lines: string[]): ParseResult {
   }
 
   // ── Post-parse validation ─────────────────────────────────────────
+  if (currentGroup) {
+    errors.push({ line: 0, message: `Group "${currentGroup.id}" was never closed with "end"` });
+  }
+
   const elementIds = new Set(elements.map(e => e.id));
   for (const conn of connections) {
     if (!elementIds.has(conn.from)) {
@@ -197,6 +250,18 @@ export function parseID(lines: string[]): ParseResult {
     }
   }
 
-  const model: IDModel = { meta, elements, connections, savedPositions };
+  // Check for elements declared in multiple groups
+  const memberGroupMap = new Map<string, string>();
+  for (const group of groups) {
+    for (const memberId of group.members) {
+      if (memberGroupMap.has(memberId)) {
+        errors.push({ line: 0, message: `Element "${memberId}" appears in both group "${memberGroupMap.get(memberId)}" and group "${group.id}"` });
+      } else {
+        memberGroupMap.set(memberId, group.id);
+      }
+    }
+  }
+
+  const model: IDModel = { meta, elements, connections, groups, savedPositions };
   return { model, errors };
 }

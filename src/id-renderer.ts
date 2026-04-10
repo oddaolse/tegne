@@ -1,13 +1,11 @@
 import * as d3 from 'd3';
-import type { IDModel, IDElement, IDConnection, Platform, IDState, Position } from './types';
+import type { IDModel, IDElement, IDConnection, IDGroup, Platform, IDState, LabelCorner, Position } from './types';
 import { getTheme } from './themes';
 import type { IDTheme } from './themes';
 import { pageRect } from './renderer';
 
 // ── Shape dimensions ──────────────────────────────────────────────────────────
 
-const VB_W = 1600;
-const VB_H = 900;
 
 const SYS_W     = 140;
 const SYS_H     = 60;
@@ -17,6 +15,55 @@ const DB_RY     = 12;
 const Q_BODY_W  = 100;
 const Q_H       = 40;
 const Q_RX      = 15;
+
+const GROUP_PADDING   = 40;
+const GROUP_LABEL_PAD = 12;
+const GROUP_FONT_SIZE = 12;
+
+// ── Group geometry ────────────────────────────────────────────────────────────
+
+interface GroupRect { x: number; y: number; w: number; h: number; }
+
+function elementBounds(el: IDElement): { hw: number; hh: number } {
+  switch (el.kind) {
+    case 'system':   return { hw: SYS_W / 2,          hh: SYS_H / 2              };
+    case 'database': return { hw: DB_W / 2,            hh: (DB_BODY_H + DB_RY) / 2 };
+    case 'queue':    return { hw: Q_BODY_W / 2 + Q_RX, hh: Q_H / 2               };
+  }
+}
+
+function computeGroupRect(group: IDGroup, model: IDModel): GroupRect {
+  const members = group.members
+    .map(id => model.elements.find(e => e.id === id))
+    .filter((e): e is IDElement => !!e);
+
+  if (members.length === 0) return { x: 0, y: 0, w: 120, h: 80 };
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const el of members) {
+    const { hw, hh } = elementBounds(el);
+    minX = Math.min(minX, el.x - hw);
+    minY = Math.min(minY, el.y - hh);
+    maxX = Math.max(maxX, el.x + hw);
+    maxY = Math.max(maxY, el.y + hh);
+  }
+
+  return {
+    x: minX - GROUP_PADDING,
+    y: minY - GROUP_PADDING,
+    w: maxX - minX + 2 * GROUP_PADDING,
+    h: maxY - minY + 2 * GROUP_PADDING,
+  };
+}
+
+function groupLabelAttrs(gr: GroupRect, corner: LabelCorner): { x: number; y: number; anchor: string } {
+  switch (corner) {
+    case 'upper-left':  return { x: gr.x + GROUP_LABEL_PAD,         y: gr.y + GROUP_LABEL_PAD + GROUP_FONT_SIZE, anchor: 'start' };
+    case 'upper-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD,  y: gr.y + GROUP_LABEL_PAD + GROUP_FONT_SIZE, anchor: 'end'   };
+    case 'lower-left':  return { x: gr.x + GROUP_LABEL_PAD,         y: gr.y + gr.h - GROUP_LABEL_PAD,            anchor: 'start' };
+    case 'lower-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD,  y: gr.y + gr.h - GROUP_LABEL_PAD,            anchor: 'end'   };
+  }
+}
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
@@ -316,6 +363,68 @@ function drawElements(
   }
 }
 
+// ── Group drawing ─────────────────────────────────────────────────────────────
+
+function drawGroups(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  model: IDModel,
+  theme: IDTheme,
+): void {
+  for (const group of model.groups) {
+    if (group.members.length === 0) continue;
+
+    const gr = computeGroupRect(group, model);
+    const lp = groupLabelAttrs(gr, group.labelCorner);
+
+    const g = svg.append('g')
+      .attr('class', 'id-group')
+      .attr('data-id', group.id)
+      .style('cursor', 'move');
+
+    g.append('rect')
+      .attr('class', 'id-group-rect')
+      .attr('x', gr.x).attr('y', gr.y)
+      .attr('width', gr.w).attr('height', gr.h)
+      .attr('rx', 8)
+      .attr('fill', theme.group.fill)
+      .attr('stroke', theme.group.stroke)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '8,4');
+
+    g.append('text')
+      .attr('class', 'id-group-label')
+      .attr('x', lp.x).attr('y', lp.y)
+      .attr('text-anchor', lp.anchor)
+      .attr('fill', theme.group.label)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', `${GROUP_FONT_SIZE}px`)
+      .attr('font-style', 'italic')
+      .text(group.label);
+  }
+}
+
+function updateGroupRects(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  model: IDModel,
+): void {
+  for (const group of model.groups) {
+    if (group.members.length === 0) continue;
+
+    const gr  = computeGroupRect(group, model);
+    const lp  = groupLabelAttrs(gr, group.labelCorner);
+    const sel = svg.select<SVGGElement>(`g.id-group[data-id="${group.id}"]`);
+    if (sel.empty()) continue;
+
+    sel.select('rect.id-group-rect')
+      .attr('x', gr.x).attr('y', gr.y)
+      .attr('width', gr.w).attr('height', gr.h);
+
+    sel.select('text.id-group-label')
+      .attr('x', lp.x).attr('y', lp.y)
+      .attr('text-anchor', lp.anchor);
+  }
+}
+
 // ── Metadata box ──────────────────────────────────────────────────────────────
 
 function drawMetaBox(
@@ -333,14 +442,18 @@ function drawMetaBox(
 
   const PAD = 12, LINE_H = 17, BOX_W = 230;
   const BOX_H = lines.length * LINE_H + PAD * 2;
-  const p     = pageRect(meta.orientation);
-  const BOX_X = p.x + 16;
-  const BOX_Y = p.y + p.h - BOX_H - 16;
+  const p     = pageRect(meta.orientation, meta.size);
+  const saved = model.savedPositions['__meta__'];
+  const BOX_X = saved?.x ?? (p.x + 16);
+  const BOX_Y = saved?.y ?? (p.y + p.h - BOX_H - 16);
 
-  const g = svg.append('g').attr('class', 'meta-box');
+  const g = svg.append('g')
+    .attr('class', 'meta-box')
+    .attr('transform', `translate(${BOX_X},${BOX_Y})`)
+    .style('cursor', 'move');
 
   g.append('rect')
-    .attr('x', BOX_X).attr('y', BOX_Y)
+    .attr('x', 0).attr('y', 0)
     .attr('width', BOX_W).attr('height', BOX_H)
     .attr('rx', 4)
     .attr('fill', theme.metaBox.fill)
@@ -349,7 +462,7 @@ function drawMetaBox(
 
   lines.forEach((text, i) => {
     g.append('text')
-      .attr('x', BOX_X + PAD).attr('y', BOX_Y + PAD + i * LINE_H + 11)
+      .attr('x', PAD).attr('y', PAD + i * LINE_H + 11)
       .attr('fill', theme.metaBox.text)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '11px')
@@ -361,7 +474,7 @@ function drawMetaBox(
 
 type IdSvgSel = d3.Selection<SVGSVGElement, unknown, null, undefined>;
 
-export function attachIdDrag(svg: IdSvgSel, model: IDModel): void {
+export function attachIdDrag(svg: IdSvgSel, model: IDModel, onDragEnd?: () => void): void {
   const drag = d3.drag<SVGGElement, unknown>()
     .on('drag', function (event) {
       const [x, y] = d3.pointer(event, svg.node()!);
@@ -370,9 +483,11 @@ export function attachIdDrag(svg: IdSvgSel, model: IDModel): void {
       if (!el) return;
       el.x = x;
       el.y = y;
+      model.savedPositions[el.id] = { x, y };
       d3.select(this).attr('transform', `translate(${x},${y})`);
       idRedrawConnections(svg, model);
-    });
+    })
+    .on('end', () => onDragEnd?.());
 
   svg.selectAll<SVGGElement, unknown>('g.id-node').call(drag);
 }
@@ -385,12 +500,14 @@ export function idRender(svg: IdSvgSel, model: IDModel): void {
   svg.selectAll('*').remove();
   defineDefsSection(svg, theme);
 
+  const p = pageRect(model.meta.orientation, model.meta.size);
   svg.append('rect')
     .attr('class', 'canvas-bg')
     .attr('x', 0).attr('y', 0)
-    .attr('width', VB_W).attr('height', VB_H)
+    .attr('width', p.x + p.w + 100).attr('height', p.y + p.h + 100)
     .attr('fill', theme.canvasBg);
 
+  drawGroups(svg, model, theme);
   drawConnections(svg, model, theme);
   drawElements(svg, model, theme);
   drawMetaBox(svg, model, theme);
@@ -400,6 +517,31 @@ export function idRedrawConnections(svg: IdSvgSel, model: IDModel): void {
   const theme = getTheme(model.meta.theme).id;
   svg.selectAll('.id-connection').remove();
   drawConnections(svg, model, theme);
+  updateGroupRects(svg, model);
   svg.selectAll('g.id-node').raise();
   svg.selectAll('.meta-box').raise();
+}
+
+export function attachGroupDrag(svg: IdSvgSel, model: IDModel, onDragEnd?: () => void): void {
+  const drag = d3.drag<SVGGElement, unknown>()
+    .on('drag', function (event) {
+      const groupId = d3.select(this).attr('data-id');
+      const group   = model.groups.find(g => g.id === groupId);
+      if (!group) return;
+
+      const ev = event as d3.D3DragEvent<SVGGElement, unknown, unknown>;
+      for (const memberId of group.members) {
+        const el = model.elements.find(e => e.id === memberId);
+        if (!el) continue;
+        el.x += ev.dx;
+        el.y += ev.dy;
+        model.savedPositions[el.id] = { x: el.x, y: el.y };
+        svg.select<SVGGElement>(`g.id-node[data-id="${memberId}"]`)
+          .attr('transform', `translate(${el.x},${el.y})`);
+      }
+      idRedrawConnections(svg, model);
+    })
+    .on('end', () => onDragEnd?.());
+
+  svg.selectAll<SVGGElement, unknown>('g.id-group').call(drag);
 }

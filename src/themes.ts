@@ -29,16 +29,17 @@ export interface IDPlatformColors {
 }
 
 export interface IDTheme {
-  canvasBg:             string;
-  borderStroke:         string;   // default border colour; overridden per-platform when platformColoredBorder
-  platformColoredBorder: boolean; // true = border matches platform colour (neon outline)
-  connStroke:           string;
-  labelInside:          string;
-  labelBelow:           string;
-  protocolLabel:        string;
-  glow:                 boolean;  // apply SVG glow filter on elements
-  platforms:            Record<Platform, IDPlatformColors>;
-  metaBox:              { fill: string; stroke: string; text: string };
+  canvasBg:              string;
+  borderStroke:          string;   // default border colour; overridden per-platform when platformColoredBorder
+  platformColoredBorder: boolean;  // true = border matches platform colour (neon outline)
+  connStroke:            string;
+  labelInside:           string;
+  labelBelow:            string;
+  protocolLabel:         string;
+  glow:                  boolean;  // apply SVG glow filter on elements
+  platforms:             Record<Platform, IDPlatformColors>;
+  metaBox:               { fill: string; stroke: string; text: string };
+  group:                 { fill: string; stroke: string; label: string };
 }
 
 // ── dark ─────────────────────────────────────────────────────────────────────
@@ -75,6 +76,7 @@ const dark: Theme = {
       'oracle':  { current: '#C74634', new: '#E05A45', changing: '#963428', decommissioned: '#585b70' },
     },
     metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
+    group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#6c7086' },
   },
 };
 
@@ -112,6 +114,7 @@ const light: Theme = {
       'oracle':  { current: '#A33525', new: '#C74634', changing: '#7A2718', decommissioned: '#9e9e9e' },
     },
     metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
+    group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#6c6f85' },
   },
 };
 
@@ -151,6 +154,7 @@ const tokyo: Theme = {
       'oracle':  { current: '#FF1744', new: '#FF5252', changing: '#800020', decommissioned: '#2a2a3a' },
     },
     metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
+    group:   { fill: '#181830', stroke: '#414868', label: '#9580ff' },
   },
 };
 

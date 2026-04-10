@@ -1,10 +1,10 @@
 import * as d3 from 'd3';
 import { parse } from './parser';
 import { layout } from './layout';
-import { render, pageRect } from './renderer';
+import { render, pageRect, attachMetaBoxDrag } from './renderer';
 import { attachDrag } from './drag';
 import { idLayout } from './id-layout';
-import { idRender, attachIdDrag } from './id-renderer';
+import { idRender, attachIdDrag, attachGroupDrag } from './id-renderer';
 import { exportSVG, saveSD, saveID } from './export';
 import type { SDModel, IDModel } from './types';
 
@@ -37,7 +37,7 @@ let panX        = 0;
 let panY        = 0;
 
 function applyZoom(): void {
-  const p  = pageRect(currentModel?.meta.orientation);
+  const p  = pageRect(currentModel?.meta.orientation, currentModel?.meta.size);
   const w  = p.w / zoomLevel;
   const h  = p.h / zoomLevel;
   const x  = p.x + panX + (p.w - w) / 2;
@@ -51,6 +51,35 @@ function resetView(): void {
   panX      = 0;
   panY      = 0;
   applyZoom();
+}
+
+// ── Position sync ─────────────────────────────────────────────────────────────
+function updateEditorPositions(model: SDModel | IDModel): void {
+  const stripped = editor.value
+    .split('\n')
+    .filter(l => !l.trim().startsWith('@position'))
+    .join('\n')
+    .trimEnd();
+
+  let posLines: string;
+  if (model.meta.diagramType === 'id') {
+    posLines = (model as IDModel).elements
+      .map(e => `@position ${e.id} ${Math.round(e.x)} ${Math.round(e.y)}`)
+      .join('\n');
+  } else {
+    const sdModel = model as SDModel;
+    posLines = [...sdModel.stocks, ...sdModel.clouds, ...sdModel.auxiliaries]
+      .map(n => `@position ${n.id} ${Math.round(n.x)} ${Math.round(n.y)}`)
+      .join('\n');
+  }
+
+  const metaPos = model.savedPositions['__meta__'];
+  if (metaPos) {
+    posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
+  }
+
+  editor.value = `${stripped}\n\n${posLines}\n`;
+  localStorage.setItem(LS_KEY, editor.value);
 }
 
 // ── Render pipeline ───────────────────────────────────────────────────────────
@@ -78,12 +107,15 @@ function runRender(): void {
     const idModel = model as IDModel;
     idLayout(idModel);
     idRender(svg, idModel);
-    attachIdDrag(svg, idModel);
+    attachIdDrag(svg, idModel, () => updateEditorPositions(idModel));
+    attachGroupDrag(svg, idModel, () => updateEditorPositions(idModel));
+    attachMetaBoxDrag(svg, idModel, () => updateEditorPositions(idModel));
   } else {
     const sdModel = model as SDModel;
     layout(sdModel);
     render(svg, sdModel);
-    attachDrag(svg, sdModel);
+    attachDrag(svg, sdModel, () => updateEditorPositions(sdModel));
+    attachMetaBoxDrag(svg, sdModel, () => updateEditorPositions(sdModel));
   }
 
   currentModel = model;
