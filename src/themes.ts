@@ -60,15 +60,15 @@ export interface IDTheme {
 const dark: Theme = {
   canvasBg:  '#181825',
   pageGuide: '#44446a',
-  stock:     { fill: '#2a2a4a', stroke: '#8888cc', text: '#cdd6f4' },
-  cloud:     { fill: '#1e2a1e', stroke: '#66aa66', text: '#a6e3a1' },
-  aux:       { fill: '#2a2438', stroke: '#aa88cc', text: '#cba6f7' },
+  stock:     { fill: '#2a2a4a', stroke: '#8888cc', text: '#ffffff' },
+  cloud:     { fill: '#1e2a1e', stroke: '#66aa66', text: '#ffffff' },
+  aux:       { fill: '#2a2438', stroke: '#aa88cc', text: '#ffffff' },
   flow: {
     strong:    '#111111',
     medium:    '#555555',
     weak:      '#999999',
     valveFill: '#1e1e2e',
-    label:     '#a6adc8',
+    label:     '#ffffff',
   },
   connector: { stroke: '#7c7caa' },
   polarity:  { positive: '#89b4fa', negative: '#cc3333' },
@@ -80,7 +80,7 @@ const dark: Theme = {
     connStroke:           '#6c7086',
     labelInside:          '#ffffff',
     labelBelow:           '#a6adc8',
-    protocolLabel:        '#585b70',
+    protocolLabel:        '#ffffff',
     glow:                 false,
     platforms: {
       'aws':     { current: '#FF9900', new: '#FFB84D', changing: '#CC7A00', decommissioned: '#585b70' },
@@ -90,7 +90,7 @@ const dark: Theme = {
       'oracle':  { current: '#C74634', new: '#E05A45', changing: '#963428', decommissioned: '#585b70' },
     },
     metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
-    group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#6c7086' },
+    group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#ffffff' },
   },
   iff: {
     canvasBg:     '#181825',
@@ -108,7 +108,7 @@ const dark: Theme = {
       consumer:  '#374151',
     },
     metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
-    group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#6c7086' },
+    group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#ffffff' },
   },
 };
 
@@ -124,7 +124,7 @@ const light: Theme = {
     medium:    '#444444',
     weak:      '#999999',
     valveFill: '#f5f5f0',
-    label:     '#444466',
+    label:     '#111111',
   },
   connector: { stroke: '#5566aa' },
   polarity:  { positive: '#2244cc', negative: '#cc0000' },
@@ -134,9 +134,9 @@ const light: Theme = {
     borderStroke:         '#4c4f69',
     platformColoredBorder: false,
     connStroke:           '#8c8fa1',
-    labelInside:          '#ffffff',
-    labelBelow:           '#4c4f69',
-    protocolLabel:        '#6c6f85',
+    labelInside:          '#111111',
+    labelBelow:           '#111111',
+    protocolLabel:        '#111111',
     glow:                 false,
     platforms: {
       'aws':     { current: '#E68A00', new: '#FF9900', changing: '#B36B00', decommissioned: '#9e9e9e' },
@@ -146,13 +146,13 @@ const light: Theme = {
       'oracle':  { current: '#A33525', new: '#C74634', changing: '#7A2718', decommissioned: '#9e9e9e' },
     },
     metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
-    group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#6c6f85' },
+    group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#111111' },
   },
   iff: {
     canvasBg:     '#f5f5f0',
     borderStroke: '#4c4f69',
     connStroke:   '#8c8fa1',
-    labelText:    '#ffffff',
+    labelText:    '#111111',
     glow:         false,
     roles: {
       master:    '#1D4ED8',
@@ -164,7 +164,7 @@ const light: Theme = {
       consumer:  '#9CA3AF',
     },
     metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
-    group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#6c6f85' },
+    group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#111111' },
   },
 };
 
@@ -174,15 +174,15 @@ const light: Theme = {
 const tokyo: Theme = {
   canvasBg:  '#1a1b26',
   pageGuide: '#414868',
-  stock:     { fill: '#1f2335', stroke: '#7aa2f7', text: '#c0caf5' },
-  cloud:     { fill: '#1a2a1e', stroke: '#9ece6a', text: '#9ece6a' },
-  aux:       { fill: '#1f1a2e', stroke: '#bb9af7', text: '#bb9af7' },
+  stock:     { fill: '#1f2335', stroke: '#7aa2f7', text: '#ffffff' },
+  cloud:     { fill: '#1a2a1e', stroke: '#9ece6a', text: '#ffffff' },
+  aux:       { fill: '#1f1a2e', stroke: '#bb9af7', text: '#ffffff' },
   flow: {
     strong:    '#c0caf5',
     medium:    '#7aa2f7',
     weak:      '#565f89',
     valveFill: '#1a1b26',
-    label:     '#a9b1d6',
+    label:     '#ffffff',
   },
   connector: { stroke: '#7dcfff' },
   polarity:  { positive: '#ff9e64', negative: '#ff0040' },
@@ -194,7 +194,7 @@ const tokyo: Theme = {
     connStroke:           '#7c6f9f',
     labelInside:          '#ffffff',
     labelBelow:           '#e2e0ff',
-    protocolLabel:        '#9580ff',
+    protocolLabel:        '#ffffff',
     glow:                 true,
     platforms: {
       'aws':     { current: '#FF6600', new: '#FF8C1A', changing: '#803300', decommissioned: '#2a2a3a' },
@@ -204,7 +204,7 @@ const tokyo: Theme = {
       'oracle':  { current: '#FF1744', new: '#FF5252', changing: '#800020', decommissioned: '#2a2a3a' },
     },
     metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
-    group:   { fill: '#181830', stroke: '#414868', label: '#9580ff' },
+    group:   { fill: '#181830', stroke: '#414868', label: '#ffffff' },
   },
   iff: {
     canvasBg:     '#0d0d14',
@@ -222,7 +222,7 @@ const tokyo: Theme = {
       consumer:  '#3A3A5C',
     },
     metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
-    group:   { fill: '#181830', stroke: '#414868', label: '#9580ff' },
+    group:   { fill: '#181830', stroke: '#414868', label: '#ffffff' },
   },
 };
 

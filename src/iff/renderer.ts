@@ -122,7 +122,7 @@ function drawLinks(
     g.append('text')
       .attr('x', mx).attr('y', my - 6)
       .attr('text-anchor', 'middle')
-      .attr('fill', theme.connStroke)
+      .attr('fill', theme.labelText)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '10px')
       .text(linkLabel);
