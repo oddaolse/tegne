@@ -4,10 +4,11 @@
 
 A browser-based diagram editor for structural and visual modelling. Write a model in a plain-text DSL, render it as an interactive SVG, adjust the layout by dragging, then save or export.
 
-Supports two diagram types:
+Supports three diagram types:
 - **Stock-and-Flow diagrams** (`@type sd`) — Forrester/System Dynamics structural modelling
-- **Integration diagrams** (`@type id`) — IT architecture, showing systems, databases, queues, and their connections
-
+- **Integration diagrams** (`@type id`) — IT architecture, showing systems, databases, queues, and 
+their connections
+- **Information Flow Diagram** (`@type infoflow`) shows how information is owned, copied, transformed, enriched, and aggregated across systems.
 ---
 
 ## Quick Start
@@ -25,7 +26,7 @@ No server required. Everything runs in the browser.
 ## Workflow
 
 1. **Write** a model in the DSL editor (left panel)
-2. **Open** an existing `.sd` or `.id` file — renders automatically
+2. **Open** an existing `.sd` or `.id` or `.iff` file — renders automatically
 3. **Fix errors** shown in the red panel below the editor — the last valid diagram stays on screen
 4. **Drag** any element to correct the auto-layout
 5. **Zoom** with `+` / `−` buttons or scroll the canvas; **⊡** resets to full page
@@ -42,6 +43,7 @@ Every file starts with `@type`. If absent, defaults to `sd`.
 |---------|---------|---------------|
 | `sd` | Forrester Stock-and-Flow | `.sd` |
 | `id` | Integration diagram | `.id` |
+| `infoflow` | Information Flow diagram | `.iff` |
 
 ---
 
@@ -189,6 +191,44 @@ Override label placement with `[label:inside]` or `[label:below]`.
 The `tokyo` theme renders integration diagrams with full neon colours — glowing platform fills on a near-black canvas.
 
 ---
+
+## Information Flow Diagram (`@type infoflow`)
+
+### Node semantics
+
+Each node represents a system, store, or data-holding component with a defined informational role.
+
+The key distinction is not deployment technology, but **data role**.
+
+Recommended core roles:
+
+- `master`
+- `replica`
+- `derived`
+- `aggregate`
+- `golden`
+- `reference`
+- `consumer`
+
+### Link semantics
+
+Each link represents an information relationship.
+
+Core relationship types:
+
+- `replicate`
+- `publish`
+- `ingest`
+- `derive`
+- `aggregate`
+- `enrich`
+- `merge`
+- `serve`
+
+The relationship keyword describes the informational meaning of the movement. Technical protocol belongs in the optional transport bracket.
+
+---
+
 
 ## Project Structure
 

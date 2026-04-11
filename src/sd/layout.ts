@@ -1,4 +1,4 @@
-import type { SDModel } from './types';
+import type { SDModel } from '../types';
 
 const CENTER_Y       = 450;
 const MARGIN_X       = 100;

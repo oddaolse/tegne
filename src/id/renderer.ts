@@ -1,36 +1,21 @@
 import * as d3 from 'd3';
-import type { IDModel, IDElement, IDConnection, IDGroup, Platform, IDState, LabelCorner, Position } from './types';
-import { getTheme } from './themes';
-import type { IDTheme } from './themes';
-import { pageRect } from './renderer';
+import type { IDModel, IDElement, IDConnection, IDGroup, LabelCorner, Position } from './types';
+import { getTheme } from '../themes';
+import type { IDTheme } from '../themes';
+import { pageRect } from '../sd/renderer';
+import {
+  SYS_H, DB_BODY_H, DB_RY, Q_H,
+  elementBounds, getBorderStyle,
+  drawSystem, drawDatabase, drawQueue,
+} from './shapes';
 
-// ── Shape dimensions ──────────────────────────────────────────────────────────
-
-
-const SYS_W     = 140;
-const SYS_H     = 60;
-const DB_W      = 80;
-const DB_BODY_H = 60;
-const DB_RY     = 12;
-const Q_BODY_W  = 100;
-const Q_H       = 40;
-const Q_RX      = 15;
+// ── Group geometry ────────────────────────────────────────────────────────────
 
 const GROUP_PADDING   = 40;
 const GROUP_LABEL_PAD = 12;
 const GROUP_FONT_SIZE = 12;
 
-// ── Group geometry ────────────────────────────────────────────────────────────
-
 interface GroupRect { x: number; y: number; w: number; h: number; }
-
-function elementBounds(el: IDElement): { hw: number; hh: number } {
-  switch (el.kind) {
-    case 'system':   return { hw: SYS_W / 2,          hh: SYS_H / 2              };
-    case 'database': return { hw: DB_W / 2,            hh: (DB_BODY_H + DB_RY) / 2 };
-    case 'queue':    return { hw: Q_BODY_W / 2 + Q_RX, hh: Q_H / 2               };
-  }
-}
 
 function computeGroupRect(group: IDGroup, model: IDModel): GroupRect {
   const members = group.members
@@ -77,30 +62,13 @@ function getBorderStroke(el: IDElement, theme: IDTheme): string {
     : theme.borderStroke;
 }
 
-interface BorderStyle { strokeWidth: number; dashArray: string | null; }
-
-function getBorderStyle(state: IDState): BorderStyle {
-  switch (state) {
-    case 'current':        return { strokeWidth: 2, dashArray: null  };
-    case 'new':            return { strokeWidth: 4, dashArray: null  };
-    case 'changing':       return { strokeWidth: 2, dashArray: '6,4' };
-    case 'decommissioned': return { strokeWidth: 2, dashArray: '2,4' };
-  }
-}
-
 // ── Geometry ──────────────────────────────────────────────────────────────────
 
 function elementEdge(el: IDElement, tx: number, ty: number): Position {
   const dx = tx - el.x, dy = ty - el.y;
   if (dx === 0 && dy === 0) return { x: el.x, y: el.y };
 
-  let hw: number, hh: number;
-  switch (el.kind) {
-    case 'system':   hw = SYS_W / 2;             hh = SYS_H / 2;              break;
-    case 'database': hw = DB_W / 2;               hh = (DB_BODY_H + DB_RY) / 2; break;
-    case 'queue':    hw = Q_BODY_W / 2 + Q_RX;   hh = Q_H / 2;                break;
-  }
-
+  const { hw, hh } = elementBounds(el);
   const t = Math.abs(dx) * hh > Math.abs(dy) * hw
     ? hw / Math.abs(dx)
     : hh / Math.abs(dy);
@@ -115,7 +83,6 @@ function defineDefsSection(
 ): void {
   const defs = svg.append('defs');
 
-  // Closed (filled) arrowhead
   defs.append('marker')
     .attr('id', 'id-arrow-closed')
     .attr('viewBox', '0 0 10 10')
@@ -126,7 +93,6 @@ function defineDefsSection(
     .attr('d', 'M 0 0 L 10 5 L 0 10 z')
     .attr('fill', theme.connStroke);
 
-  // Open arrowhead (queue connections)
   defs.append('marker')
     .attr('id', 'id-arrow-open')
     .attr('viewBox', '0 0 10 10')
@@ -139,7 +105,6 @@ function defineDefsSection(
     .attr('stroke', theme.connStroke)
     .attr('stroke-width', 1.5);
 
-  // Neon glow filter (tokyo only)
   if (theme.glow) {
     const filter = defs.append('filter')
       .attr('id', 'neon-glow')
@@ -204,15 +169,6 @@ function drawConnections(
 
 // ── Element drawing ───────────────────────────────────────────────────────────
 
-function applyStroke(
-  sel: d3.Selection<SVGElement, unknown, null, undefined>,
-  border: BorderStyle,
-  stroke: string,
-): void {
-  sel.attr('stroke', stroke).attr('stroke-width', border.strokeWidth);
-  if (border.dashArray) sel.attr('stroke-dasharray', border.dashArray);
-}
-
 function addLabel(
   g: d3.Selection<SVGGElement, unknown, null, undefined>,
   el: IDElement,
@@ -239,92 +195,6 @@ function addLabel(
   }
 }
 
-function drawSystem(
-  g: d3.Selection<SVGGElement, unknown, null, undefined>,
-  el: IDElement,
-  fill: string,
-  border: BorderStyle,
-  stroke: string,
-): void {
-  const rect = g.append('rect')
-    .attr('x', -SYS_W / 2).attr('y', -SYS_H / 2)
-    .attr('width', SYS_W).attr('height', SYS_H)
-    .attr('rx', 4).attr('fill', fill);
-  applyStroke(rect as unknown as d3.Selection<SVGElement, unknown, null, undefined>, border, stroke);
-}
-
-function drawDatabase(
-  g: d3.Selection<SVGGElement, unknown, null, undefined>,
-  el: IDElement,
-  fill: string,
-  border: BorderStyle,
-  stroke: string,
-): void {
-  const hw     = DB_W / 2;
-  const top    = -DB_BODY_H / 2;
-  const bottom =  DB_BODY_H / 2;
-
-  g.append('rect')
-    .attr('x', -hw).attr('y', top)
-    .attr('width', DB_W).attr('height', DB_BODY_H)
-    .attr('fill', fill).attr('stroke', 'none');
-
-  const mkLine = (x1: number, y1: number, x2: number, y2: number) => {
-    const ln = g.append('line')
-      .attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2)
-      .attr('stroke', stroke).attr('stroke-width', border.strokeWidth);
-    if (border.dashArray) ln.attr('stroke-dasharray', border.dashArray);
-  };
-  mkLine(-hw, top, -hw, bottom);
-  mkLine( hw, top,  hw, bottom);
-
-  const botEll = g.append('ellipse')
-    .attr('cx', 0).attr('cy', bottom)
-    .attr('rx', hw).attr('ry', DB_RY).attr('fill', fill);
-  applyStroke(botEll as unknown as d3.Selection<SVGElement, unknown, null, undefined>, border, stroke);
-
-  const topEll = g.append('ellipse')
-    .attr('cx', 0).attr('cy', top)
-    .attr('rx', hw).attr('ry', DB_RY).attr('fill', fill);
-  applyStroke(topEll as unknown as d3.Selection<SVGElement, unknown, null, undefined>, border, stroke);
-}
-
-function drawQueue(
-  g: d3.Selection<SVGGElement, unknown, null, undefined>,
-  el: IDElement,
-  fill: string,
-  border: BorderStyle,
-  stroke: string,
-): void {
-  const hh    = Q_H / 2;
-  const left  = -Q_BODY_W / 2;
-  const right =  Q_BODY_W / 2;
-
-  g.append('rect')
-    .attr('x', left).attr('y', -hh)
-    .attr('width', Q_BODY_W).attr('height', Q_H)
-    .attr('fill', fill).attr('stroke', 'none');
-
-  const mkLine = (x1: number, y1: number, x2: number, y2: number) => {
-    const ln = g.append('line')
-      .attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2)
-      .attr('stroke', stroke).attr('stroke-width', border.strokeWidth);
-    if (border.dashArray) ln.attr('stroke-dasharray', border.dashArray);
-  };
-  mkLine(left, -hh, right, -hh);
-  mkLine(left,  hh, right,  hh);
-
-  const leftEll = g.append('ellipse')
-    .attr('cx', left).attr('cy', 0)
-    .attr('rx', Q_RX).attr('ry', hh).attr('fill', fill);
-  applyStroke(leftEll as unknown as d3.Selection<SVGElement, unknown, null, undefined>, border, stroke);
-
-  const rightEll = g.append('ellipse')
-    .attr('cx', right).attr('cy', 0)
-    .attr('rx', Q_RX).attr('ry', hh).attr('fill', fill);
-  applyStroke(rightEll as unknown as d3.Selection<SVGElement, unknown, null, undefined>, border, stroke);
-}
-
 function drawElements(
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
   model: IDModel,
@@ -343,12 +213,11 @@ function drawElements(
     if (theme.glow) g.attr('filter', 'url(#neon-glow)');
 
     switch (el.kind) {
-      case 'system':   drawSystem(g, el, fill, border, stroke);   break;
-      case 'database': drawDatabase(g, el, fill, border, stroke); break;
-      case 'queue':    drawQueue(g, el, fill, border, stroke);     break;
+      case 'system':   drawSystem(g, fill, border, stroke);   break;
+      case 'database': drawDatabase(g, fill, border, stroke); break;
+      case 'queue':    drawQueue(g, fill, border, stroke);     break;
     }
 
-    // Label (drawn after shape, outside glow filter scope)
     switch (el.kind) {
       case 'system':
         addLabel(g, el, theme, 0, SYS_H / 2 + 16);

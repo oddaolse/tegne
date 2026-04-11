@@ -1,5 +1,5 @@
-import type { SDModel, IDModel, Node } from './types';
-import { pageRect } from './renderer';
+import type { SDModel, IDModel, IFFModel, Node } from './types';
+import { pageRect } from './sd/renderer';
 
 // ── SVG Export ────────────────────────────────────────────────────────────────
 
@@ -68,6 +68,29 @@ export async function saveID(dslText: string, model: IDModel): Promise<void> {
 
   await saveAs(content, 'text/plain', filenameFor(model, 'id'), [
     { description: 'Tegne integration diagram files', accept: { 'text/plain': ['.id'] } },
+  ]);
+}
+
+// ── IFF File Save ─────────────────────────────────────────────────────────────
+
+export async function saveIFF(dslText: string, model: IFFModel): Promise<void> {
+  const stripped = dslText
+    .split('\n')
+    .filter(l => !l.trim().startsWith('@position'))
+    .join('\n')
+    .trimEnd();
+
+  let posLines = model.stores
+    .map(s => `@position ${s.id} ${Math.round(s.x)} ${Math.round(s.y)}`)
+    .join('\n');
+
+  const metaPos = model.savedPositions['__meta__'];
+  if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
+
+  const content = `${stripped}\n\n${posLines}\n`;
+
+  await saveAs(content, 'text/plain', filenameFor(model, 'iff'), [
+    { description: 'Tegne information flow files', accept: { 'text/plain': ['.iff'] } },
   ]);
 }
 

@@ -1,12 +1,14 @@
 import * as d3 from 'd3';
 import { parse } from './parser';
-import { layout } from './layout';
-import { render, pageRect, attachMetaBoxDrag } from './renderer';
-import { attachDrag } from './drag';
-import { idLayout } from './id-layout';
-import { idRender, attachIdDrag, attachGroupDrag } from './id-renderer';
-import { exportSVG, saveSD, saveID } from './export';
-import type { SDModel, IDModel } from './types';
+import { layout } from './sd/layout';
+import { render, pageRect, attachMetaBoxDrag } from './sd/renderer';
+import { attachDrag } from './sd/drag';
+import { idLayout } from './id/layout';
+import { idRender, attachIdDrag, attachGroupDrag } from './id/renderer';
+import { iffLayout } from './iff/layout';
+import { iffRender, attachIffDrag, attachIffGroupDrag } from './iff/renderer';
+import { exportSVG, saveSD, saveID, saveIFF } from './export';
+import type { SDModel, IDModel, IFFModel } from './types';
 
 const LS_KEY = 'tegne-dsl';
 
@@ -26,7 +28,7 @@ const canvasContainer = document.getElementById('canvas-container') as HTMLDivEl
 const svgEl           = document.getElementById('canvas')           as unknown as SVGSVGElement;
 const svg             = d3.select(svgEl);
 
-let currentModel: SDModel | IDModel | null = null;
+let currentModel: SDModel | IDModel | IFFModel | null = null;
 
 // ── Zoom & pan ────────────────────────────────────────────────────────────────
 const ZOOM_STEP = 1.10;
@@ -54,7 +56,7 @@ function resetView(): void {
 }
 
 // ── Position sync ─────────────────────────────────────────────────────────────
-function updateEditorPositions(model: SDModel | IDModel): void {
+function updateEditorPositions(model: SDModel | IDModel | IFFModel): void {
   const stripped = editor.value
     .split('\n')
     .filter(l => !l.trim().startsWith('@position'))
@@ -65,6 +67,10 @@ function updateEditorPositions(model: SDModel | IDModel): void {
   if (model.meta.diagramType === 'id') {
     posLines = (model as IDModel).elements
       .map(e => `@position ${e.id} ${Math.round(e.x)} ${Math.round(e.y)}`)
+      .join('\n');
+  } else if (model.meta.diagramType === 'infoflow') {
+    posLines = (model as IFFModel).stores
+      .map(s => `@position ${s.id} ${Math.round(s.x)} ${Math.round(s.y)}`)
       .join('\n');
   } else {
     const sdModel = model as SDModel;
@@ -110,6 +116,13 @@ function runRender(): void {
     attachIdDrag(svg, idModel, () => updateEditorPositions(idModel));
     attachGroupDrag(svg, idModel, () => updateEditorPositions(idModel));
     attachMetaBoxDrag(svg, idModel, () => updateEditorPositions(idModel));
+  } else if (model.meta.diagramType === 'infoflow') {
+    const iffModel = model as IFFModel;
+    iffLayout(iffModel);
+    iffRender(svg, iffModel);
+    attachIffDrag(svg, iffModel, () => updateEditorPositions(iffModel));
+    attachIffGroupDrag(svg, iffModel, () => updateEditorPositions(iffModel));
+    attachMetaBoxDrag(svg, iffModel, () => updateEditorPositions(iffModel));
   } else {
     const sdModel = model as SDModel;
     layout(sdModel);
@@ -145,6 +158,8 @@ btnSave.addEventListener('click', () => {
   if (!currentModel) { alert('Nothing to save — render a model first.'); return; }
   if (currentModel.meta.diagramType === 'id') {
     void saveID(editor.value, currentModel as IDModel);
+  } else if (currentModel.meta.diagramType === 'infoflow') {
+    void saveIFF(editor.value, currentModel as IFFModel);
   } else {
     void saveSD(editor.value, currentModel as SDModel);
   }

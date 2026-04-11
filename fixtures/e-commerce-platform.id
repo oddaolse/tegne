@@ -1,0 +1,51 @@
+@type     id
+@name     E-Commerce Platform
+@version  1.0
+@author   Jane Smith
+@date     2026-04-10
+@theme    light
+
+# AWS group
+group aws_group AWS [label:upper-right]
+system    WebApp          [aws]
+system    OrderSvc        [aws]
+system    NewReporting    [aws]       [new]
+end
+
+# Azure group
+group azure_group Azure [label:upper-right]
+system    PaymentSvc      [azure]
+system    BillingSvc      [azure]     [changing]
+end
+
+# Ungrouped systems
+system    LegacyAuth      [on-prem]   [decommissioned]
+
+# Data stores
+database  CustomerDB      [on-prem]
+database  OrderDB         [oracle]
+
+# Message queues
+queue     OrderQueue      [gcp]
+
+# Connections
+connect   WebApp          ->    OrderSvc        : REST
+connect   WebApp          ->    CustomerDB      : JDBC
+connect   OrderSvc        ->    OrderQueue      : SQS
+connect   OrderQueue      ->    PaymentSvc      : SQS
+connect   OrderSvc       <->    PaymentSvc      : REST
+connect   OrderSvc        ->    OrderDB         : JDBC
+connect   OrderSvc        ->    NewReporting    : REST
+connect   BillingSvc      ->    PaymentSvc      : REST
+connect   LegacyAuth      ->    WebApp          : SOAP
+
+@position WebApp 188 297
+@position OrderSvc 408 297
+@position NewReporting 628 297
+@position PaymentSvc 434 502
+@position BillingSvc 188 501
+@position LegacyAuth 400 159
+@position CustomerDB 145 116
+@position OrderDB 675 129
+@position OrderQueue 834 499
+@position __meta__ 33 621

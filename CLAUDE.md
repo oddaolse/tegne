@@ -23,6 +23,7 @@ Tegne supports multiple diagram types, selected via `@type` at the top of the DS
 |---|---|---|
 | `sd` | Forrester Stock-and-Flow (System Dynamics) | Implemented |
 | `id` | Integration Diagram (IT Architecture) | Implemented |
+| `infoflow` | Information Flow Diagram (Data Landscape) | Implemented |
 | *(absent)* | Defaults to `sd` | — |
 
 **What to build:** see [`requirements.md`](requirements.md)
@@ -58,21 +59,34 @@ tegne/
 ├── requirements.md
 ├── src/
 │   ├── main.ts         # Entry point — wires editor, routes by @type
-│   ├── types.ts        # All model interfaces (SDModel, IDModel, shared)
+│   ├── types.ts        # Shared types + re-exports from sub-modules
 │   ├── parser.ts       # DSL entry point — pre-scans @type, dispatches
-│   ├── id-parser.ts    # ID DSL → IDModel
-│   ├── layout.ts       # SD auto-layout (heuristic)
-│   ├── id-layout.ts    # ID auto-layout (grid)
-│   ├── renderer.ts     # SD SVG rendering via D3
-│   ├── id-renderer.ts  # ID SVG rendering via D3 + drag
-│   ├── drag.ts         # SD drag behaviour
-│   ├── export.ts       # SVG export, .sd save, .id save
-│   ├── themes.ts       # Colour themes (dark, light, tokyo) — SD + ID slots
-│   └── env.d.ts        # Type declarations for File System Access API
+│   ├── themes.ts       # Colour themes (dark, light, tokyo) — SD + ID + IFF slots
+│   ├── export.ts       # SVG export, .sd save, .id save, .iff save
+│   ├── env.d.ts        # Type declarations for File System Access API
+│   ├── sd/             # Forrester Stock-and-Flow
+│   │   ├── types.ts
+│   │   ├── parser.ts
+│   │   ├── layout.ts
+│   │   ├── renderer.ts
+│   │   └── drag.ts
+│   ├── id/             # Integration Diagram
+│   │   ├── types.ts
+│   │   ├── parser.ts
+│   │   ├── layout.ts
+│   │   ├── renderer.ts
+│   │   └── shapes.ts
+│   └── iff/            # Information Flow Diagram
+│       ├── types.ts
+│       ├── parser.ts
+│       ├── layout.ts
+│       ├── renderer.ts
+│       └── shapes.ts
 └── fixtures/
-    ├── population.sd           # SD: simple model — all five element types
-    ├── factory_dynamics.sd     # SD: Forrester production-distribution chain
-    └── integration_example.id  # ID: e-commerce platform — all element types and states
+    ├── population.sd              # SD: simple model — all five element types
+    ├── factory_dynamics.sd        # SD: Forrester production-distribution chain
+    ├── integration_example.id     # ID: e-commerce platform — all element types and states
+    └── customer_information.iff   # IFF: customer data landscape — all 7 roles, 2 groups
 ```
 
 ---
@@ -164,6 +178,19 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] `@theme` directive supported in ID diagrams
 - [x] Drag support — elements draggable; connections redraw on move
 - [x] Groupings — `group <id> <label> [label:corner]` / `end` blocks; named boundary rect; draggable as a unit
+
+### Information Flow Diagram (`@type infoflow`)
+- [x] `store <id> [<role>]` — data store node; 7 roles: `master`, `replica`, `derived`, `aggregate`, `golden`, `reference`, `consumer`
+- [x] Role fill colours — one colour per role, all three themes
+- [x] Role badge — italic role name rendered below each store node
+- [x] `link <from> -> <to> : <relationship>` — directional data flow; 8 relationships: `replicate`, `publish`, `ingest`, `derive`, `aggregate`, `enrich`, `merge`, `serve`
+- [x] Element states: default (current), `[new]`, `[changing]`, `[decommissioned]` — reflected in border style
+- [x] Label override: `[label:"Human Readable Name"]`
+- [x] Full theme support — dark, light, tokyo (neon + glow)
+- [x] Drag support — stores draggable; links redraw on move
+- [x] Groupings — `group <id> <label> [label:corner]` / `end` blocks; draggable as a unit
+- [x] Save as `.iff` file with `@position` directives
+- [x] Fixture: `fixtures/customer_information.iff`
 
 ---
 

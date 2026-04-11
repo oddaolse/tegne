@@ -1,7 +1,7 @@
 import * as d3 from 'd3';
-import type { SDModel, Node, Flow, Connector, Position, FlowStrength } from './types';
-import { getTheme } from './themes';
-import type { Theme } from './themes';
+import type { SDModel, Node, Flow, Connector, FlowStrength, Position } from './types';
+import { getTheme } from '../themes';
+import type { Theme } from '../themes';
 
 // ── Page dimensions ───────────────────────────────────────────────────────────
 // All sizes use the same physical scale (≈4.175 SVG units/mm, from A4 landscape).

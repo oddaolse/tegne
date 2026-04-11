@@ -1,8 +1,9 @@
 import type {
-  IDModel, IDElement, IDConnection, IDGroup, ParseError, ParseResult,
-  Platform, IDState, Direction, LabelPos, LabelCorner, ModelMeta, Position,
+  IDModel, IDElement, IDConnection, IDGroup,
+  Platform, IDState, Direction, LabelPos, LabelCorner,
 } from './types';
-import { THEMES } from './themes';
+import type { ModelMeta, Position, ParseError, ParseResult } from '../types';
+import { THEMES } from '../themes';
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);

@@ -1,103 +1,51 @@
-export type Polarity     = '+' | '-';
-export type CloudRole    = 'source' | 'sink';
-export type FlowStrength = 'weak' | 'medium' | 'strong';
-export type DiagramType  = 'sd' | 'id';
+// ── Shared types ──────────────────────────────────────────────────────────────
+
+export type DiagramType = 'sd' | 'id' | 'infoflow';
 
 export interface ModelMeta {
-  diagramType?: DiagramType;            // 'sd' | 'id'; defaults to 'sd'
-  name?:       string;
-  version?:    string;
-  date:        string;   // ISO date; auto-filled if @date absent
-  author?:     string;
-  theme?:       string;                // theme name (dark | light | tokyo); default: dark
-  orientation?: 'landscape'|'portrait'; // page orientation; default: landscape
-  size?:        'a4'|'a3'|'a2'|'a1'|'a0'; // paper size; default: a4
+  diagramType?:  DiagramType;
+  name?:         string;
+  version?:      string;
+  date:          string;
+  author?:       string;
+  theme?:        string;
+  orientation?:  'landscape' | 'portrait';
+  size?:         'a4' | 'a3' | 'a2' | 'a1' | 'a0';
 }
 
 export interface Position { x: number; y: number; }
 
-export interface Stock     extends Position { kind: 'stock'; id: string; label: string; }
-export interface Cloud     extends Position { kind: 'cloud'; id: string; label: string; role: CloudRole; }
-export interface Auxiliary extends Position { kind: 'aux';   id: string; label: string; }
-
-export interface Flow {
-  kind:     'flow';
-  id:       string;
-  from:     string;      // node id (stock or cloud)
-  to:       string;      // node id (stock or cloud)
-  label:    string;
-  polarity: Polarity;
-  strength: FlowStrength;
-}
-
-export interface Connector {
-  kind:     'connector';
-  id:       string;
-  from:     string;      // stock | cloud | aux id, or flow label
-  to:       string;      // stock | cloud | aux id, or flow label
-  polarity: Polarity;
-}
-
-export type Node = Stock | Cloud | Auxiliary;
-
-export interface SDModel {
-  meta:           ModelMeta;
-  stocks:         Stock[];
-  clouds:         Cloud[];
-  auxiliaries:    Auxiliary[];
-  flows:          Flow[];
-  connectors:     Connector[];
-  savedPositions: Record<string, Position>;
-}
-
 export interface ParseError {
-  line:    number;   // 0 = post-parse validation (no specific line)
+  line:    number;
   message: string;
 }
 
+// ParseResult references all diagram model types — import type is safe for circular refs
+import type { SDModel }   from './sd/types';
+import type { IDModel }   from './id/types';
+import type { IFFModel }  from './iff/types';
+
 export interface ParseResult {
-  model:  SDModel | IDModel | null;
+  model:  SDModel | IDModel | IFFModel | null;
   errors: ParseError[];
 }
 
-// ── Integration Diagram types ─────────────────────────────────────────────────
+// ── Re-exports for consumers that import from the root types module ───────────
 
-export type Platform    = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
-export type IDState     = 'current' | 'new' | 'changing' | 'decommissioned';
-export type Direction   = 'unidirectional' | 'bidirectional';
-export type LabelPos    = 'inside' | 'below';
-export type LabelCorner = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
+export type {
+  Polarity, CloudRole, FlowStrength,
+  Stock, Cloud, Auxiliary, Flow, Connector, Node,
+  SDModel,
+} from './sd/types';
 
-export interface IDElement extends Position {
-  kind:     'system' | 'database' | 'queue';
-  id:       string;
-  label:    string;
-  platform: Platform;
-  state:    IDState;
-  labelPos: LabelPos;
-}
+export type {
+  Platform, IDState, Direction, LabelPos, LabelCorner,
+  IDElement, IDConnection, IDGroup,
+  IDModel,
+} from './id/types';
 
-export interface IDConnection {
-  kind:      'connection';
-  id:        string;
-  from:      string;
-  to:        string;
-  direction: Direction;
-  protocol:  string;
-}
-
-export interface IDGroup {
-  kind:        'group';
-  id:          string;
-  label:       string;
-  members:     string[];       // element ids in declaration order
-  labelCorner: LabelCorner;
-}
-
-export interface IDModel {
-  meta:           ModelMeta;   // meta.diagramType === 'id'
-  elements:       IDElement[];
-  connections:    IDConnection[];
-  groups:         IDGroup[];
-  savedPositions: Record<string, Position>;
-}
+export type {
+  IFFRole, IFFRelationship, IFFState, IFFLabelCorner,
+  IFFStore, IFFLink, IFFGroup,
+  IFFModel,
+} from './iff/types';
