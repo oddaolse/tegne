@@ -89,7 +89,7 @@ When `platformColoredBorder` is true (tokyo), the border stroke matches the elem
 |---|---|---|---|---|
 | aws | `#FF9900` | `#FFB84D` | `#CC7A00` | `#585b70` |
 | azure | `#0078D4` | `#2B9AF3` | `#005EA6` | `#585b70` |
-| on-prem | `#6B7C3A` | `#8A9E4A` | `#4E5B2A` | `#585b70` |
+| on-prem | `#91A3B0` | `#AAB9C3` | `#6C808C` | `#585b70` |
 | gcp | `#34A853` | `#46C166` | `#267D3E` | `#585b70` |
 | oracle | `#C74634` | `#E05A45` | `#963428` | `#585b70` |
 
@@ -100,7 +100,7 @@ When `platformColoredBorder` is true (tokyo), the border stroke matches the elem
 |---|---|---|---|---|
 | aws | `#FF6600` | `#FF8C1A` | `#803300` | `#2a2a3a` |
 | azure | `#00BFFF` | `#40CFFF` | `#006680` | `#2a2a3a` |
-| on-prem | `#ADFF2F` | `#C8FF5A` | `#5C8A00` | `#2a2a3a` |
+| on-prem | `#B0C8D8` | `#C8DDE8` | `#6A8899` | `#2a2a3a` |
 | gcp | `#00FF7F` | `#40FFAA` | `#007A3D` | `#2a2a3a` |
 | oracle | `#FF1744` | `#FF5252` | `#800020` | `#2a2a3a` |
 

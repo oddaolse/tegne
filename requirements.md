@@ -258,7 +258,7 @@ Every element declares its platform in square brackets. This controls fill colou
 |-------------|-------------|-----------|
 | `[aws]`     | Orange      | `#FF9900` |
 | `[azure]`   | Blue        | `#0078D4` |
-| `[on-prem]` | Olive green | `#6B7C3A` |
+| `[on-prem]` | Cadet grey  | `#91A3B0` |
 | `[gcp]`     | Green       | `#34A853` |
 | `[oracle]`  | Red         | `#C74634` |
 

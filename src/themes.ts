@@ -85,7 +85,7 @@ const dark: Theme = {
     platforms: {
       'aws':     { current: '#FF9900', new: '#FFB84D', changing: '#CC7A00', decommissioned: '#585b70' },
       'azure':   { current: '#0078D4', new: '#2B9AF3', changing: '#005EA6', decommissioned: '#585b70' },
-      'on-prem': { current: '#7AAB38', new: '#96C840', changing: '#5A8028', decommissioned: '#585b70' },
+      'on-prem': { current: '#91A3B0', new: '#AAB9C3', changing: '#6C808C', decommissioned: '#585b70' },
       'gcp':     { current: '#34A853', new: '#46C166', changing: '#267D3E', decommissioned: '#585b70' },
       'oracle':  { current: '#C74634', new: '#E05A45', changing: '#963428', decommissioned: '#585b70' },
     },
@@ -141,7 +141,7 @@ const light: Theme = {
     platforms: {
       'aws':     { current: '#E68A00', new: '#FF9900', changing: '#B36B00', decommissioned: '#9e9e9e' },
       'azure':   { current: '#0063B1', new: '#0078D4', changing: '#004E8C', decommissioned: '#9e9e9e' },
-      'on-prem': { current: '#5C8228', new: '#7AAB38', changing: '#3F5C1C', decommissioned: '#9e9e9e' },
+      'on-prem': { current: '#6C808C', new: '#91A3B0', changing: '#4A5F6A', decommissioned: '#9e9e9e' },
       'gcp':     { current: '#1E8E3E', new: '#34A853', changing: '#146B2F', decommissioned: '#9e9e9e' },
       'oracle':  { current: '#A33525', new: '#C74634', changing: '#7A2718', decommissioned: '#9e9e9e' },
     },
@@ -199,7 +199,7 @@ const tokyo: Theme = {
     platforms: {
       'aws':     { current: '#FF6600', new: '#FF8C1A', changing: '#803300', decommissioned: '#2a2a3a' },
       'azure':   { current: '#00BFFF', new: '#40CFFF', changing: '#006680', decommissioned: '#2a2a3a' },
-      'on-prem': { current: '#ADFF2F', new: '#C8FF5A', changing: '#5C8A00', decommissioned: '#2a2a3a' },
+      'on-prem': { current: '#B0C8D8', new: '#C8DDE8', changing: '#6A8899', decommissioned: '#2a2a3a' },
       'gcp':     { current: '#00FF7F', new: '#40FFAA', changing: '#007A3D', decommissioned: '#2a2a3a' },
       'oracle':  { current: '#FF1744', new: '#FF5252', changing: '#800020', decommissioned: '#2a2a3a' },
     },

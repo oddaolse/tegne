@@ -167,7 +167,7 @@ Override label placement with `[label:inside]` or `[label:below]`.
 |----------|--------|
 | `[aws]` | Orange |
 | `[azure]` | Blue |
-| `[on-prem]` | Olive green |
+| `[on-prem]` | Cadet grey |
 | `[gcp]` | Green |
 | `[oracle]` | Red |
 
