@@ -1,3 +1,9 @@
+// Vite ?raw imports
+declare module '*?raw' {
+  const content: string;
+  export default content;
+}
+
 // Minimal type declarations for the File System Access API.
 // Not yet included in TypeScript's bundled lib.dom.d.ts.
 

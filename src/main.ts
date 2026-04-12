@@ -4,7 +4,7 @@ import { layout } from './sd/layout';
 import { render, pageRect, attachMetaBoxDrag } from './sd/renderer';
 import { attachDrag } from './sd/drag';
 import { idLayout } from './id/layout';
-import { idRender, attachIdDrag, attachGroupDrag } from './id/renderer';
+import { idRender, attachIdDrag, attachGroupDrag, attachLegendBoxDrag } from './id/renderer';
 import { iffLayout } from './iff/layout';
 import { iffRender, attachIffDrag, attachIffGroupDrag } from './iff/renderer';
 import { exportSVG, saveSD, saveID, saveIFF } from './export';
@@ -20,6 +20,7 @@ const btnOpen     = document.getElementById('btn-open')    as HTMLButtonElement;
 const btnSave     = document.getElementById('btn-save')    as HTMLButtonElement;
 const btnRender   = document.getElementById('btn-render')  as HTMLButtonElement;
 const btnExport   = document.getElementById('btn-export')  as HTMLButtonElement;
+const btnHelp     = document.getElementById('btn-help')    as HTMLButtonElement;
 const btnZoomIn       = document.getElementById('btn-zoom-in')      as HTMLButtonElement;
 const btnZoomOut      = document.getElementById('btn-zoom-out')     as HTMLButtonElement;
 const btnZoomFit      = document.getElementById('btn-zoom-fit')     as HTMLButtonElement;
@@ -83,6 +84,10 @@ function updateEditorPositions(model: SDModel | IDModel | IFFModel): void {
   if (metaPos) {
     posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
   }
+  const legendPos = model.savedPositions['__legend__'];
+  if (legendPos) {
+    posLines += `\n@position __legend__ ${Math.round(legendPos.x)} ${Math.round(legendPos.y)}`;
+  }
 
   editor.value = `${stripped}\n\n${posLines}\n`;
   localStorage.setItem(LS_KEY, editor.value);
@@ -115,6 +120,7 @@ function runRender(): void {
     idRender(svg, idModel);
     attachIdDrag(svg, idModel, () => updateEditorPositions(idModel));
     attachGroupDrag(svg, idModel, () => updateEditorPositions(idModel));
+    attachLegendBoxDrag(svg, idModel, () => updateEditorPositions(idModel));
     attachMetaBoxDrag(svg, idModel, () => updateEditorPositions(idModel));
   } else if (model.meta.diagramType === 'infoflow') {
     const iffModel = model as IFFModel;
@@ -190,6 +196,36 @@ btnExport.addEventListener('click', () => {
   if (!currentModel) { alert('Nothing to export — render a model first.'); return; }
   void exportSVG(svgEl, currentModel);
 });
+
+// ── Help panel ────────────────────────────────────────────────────────────────
+const helpPanel       = document.getElementById('help-panel')       as HTMLDivElement;
+const helpPanelHeader = document.getElementById('help-panel-header') as HTMLDivElement;
+const helpPanelClose  = document.getElementById('help-panel-close') as HTMLButtonElement;
+
+btnHelp.addEventListener('click', () => helpPanel.classList.toggle('visible'));
+helpPanelClose.addEventListener('click', () => helpPanel.classList.remove('visible'));
+
+{
+  let dragging = false;
+  let ox = 0, oy = 0;   // offset from pointer to panel top-left at drag start
+
+  helpPanelHeader.addEventListener('mousedown', (e) => {
+    dragging = true;
+    const r = helpPanel.getBoundingClientRect();
+    ox = e.clientX - r.left;
+    oy = e.clientY - r.top;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    helpPanel.style.right  = 'auto';
+    helpPanel.style.left   = `${e.clientX - ox}px`;
+    helpPanel.style.top    = `${e.clientY - oy}px`;
+  });
+
+  document.addEventListener('mouseup', () => { dragging = false; });
+}
 
 // ── Restore from localStorage ─────────────────────────────────────────────────
 const saved = localStorage.getItem(LS_KEY);

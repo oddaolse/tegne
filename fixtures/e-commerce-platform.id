@@ -7,7 +7,7 @@
 
 # AWS group
 group aws_group AWS [label:upper-right]
-system    WebApp          [aws]
+system    WebApp          [aws]       [changing]
 system    OrderSvc        [aws]
 system    NewReporting    [aws]       [new]
 end
@@ -44,8 +44,8 @@ connect   LegacyAuth      ->    WebApp          : SOAP
 @position NewReporting 628 297
 @position PaymentSvc 434 502
 @position BillingSvc 188 501
-@position LegacyAuth 400 159
+@position LegacyAuth 402 122
 @position CustomerDB 145 116
 @position OrderDB 675 129
 @position OrderQueue 834 499
-@position __meta__ 33 621
+@position __meta__ 52 820

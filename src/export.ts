@@ -3,7 +3,7 @@ import { pageRect } from './sd/renderer';
 
 // ── SVG Export ────────────────────────────────────────────────────────────────
 
-export async function exportSVG(svgEl: SVGSVGElement, model: SDModel | IDModel): Promise<void> {
+export async function exportSVG(svgEl: SVGSVGElement, model: SDModel | IDModel | IFFModel): Promise<void> {
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
 
   // Always export at full page zoom (ignore current pan/zoom state)
@@ -96,23 +96,12 @@ export async function saveIFF(dslText: string, model: IFFModel): Promise<void> {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function filenameFor(model: SDModel | IDModel, ext: string): string {
+function filenameFor(model: SDModel | IDModel | IFFModel, ext: string): string {
   const name = model.meta.name;
   if (name) {
     return `${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}.${ext}`;
   }
   return `model.${ext}`;
-}
-
-// Programmatic download — always triggers browser save dialog at default location.
-function download(content: string, mime: string, filename: string): void {
-  const blob = new Blob([content], { type: mime });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 // Uses the File System Access API when available (Chrome/Edge) for a native

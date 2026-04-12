@@ -3,7 +3,8 @@
 @version  2.1
 @author   Architecture Team
 @date     2026-04-10
-@theme    dark
+@theme    light
+@size     a3
 
 # Customer-facing applications
 group customer_channels Customer Channels [label:upper-left]
@@ -51,3 +52,18 @@ connect   PaymentSvc        ->    TransactionDB     : JDBC
 connect   TransactionDB     ->    AnalyticsDB       : ETL
 connect   PaymentSvc        ->    NotificationQueue : SQS
 connect   NotificationQueue ->    MobileApp         : WebSocket
+
+@position WebPortal 576 205
+@position MobileApp 260 130
+@position AccountSvc 258 524
+@position PaymentSvc 1032 543
+@position LoanSvc 634 622
+@position LegacyCore 602 527
+@position AccountDB 222 815
+@position TransactionDB 839 837
+@position AnalyticsDB 1059 837
+@position PaymentQueue 883 211
+@position NotificationQueue 1039 116
+@position SwiftGateway 1305 456
+@position FraudDetect 1315 612
+@position __meta__ 144 962

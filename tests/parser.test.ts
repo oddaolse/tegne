@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '../src/parser';
+import type { SDModel } from '../src/sd/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Positive tests
@@ -11,8 +12,8 @@ describe('parser — positive tests', () => {
     const { model, errors } = parse('');
     expect(errors).toHaveLength(0);
     expect(model).not.toBeNull();
-    expect(model!.stocks).toHaveLength(0);
-    expect(model!.flows).toHaveLength(0);
+    expect((model as SDModel).stocks).toHaveLength(0);
+    expect((model as SDModel).flows).toHaveLength(0);
   });
 
   it('ignores blank lines and # comments', () => {
@@ -24,32 +25,32 @@ stock Population
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.stocks).toHaveLength(1);
-    expect(model!.stocks[0].id).toBe('Population');
+    expect((model as SDModel).stocks).toHaveLength(1);
+    expect((model as SDModel).stocks[0].id).toBe('Population');
   });
 
   it('parses a stock', () => {
     const { model, errors } = parse('stock GDP');
     expect(errors).toHaveLength(0);
-    expect(model!.stocks[0]).toMatchObject({ kind: 'stock', id: 'GDP', label: 'GDP' });
+    expect((model as SDModel).stocks[0]).toMatchObject({ kind: 'stock', id: 'GDP', label: 'GDP' });
   });
 
   it('parses a cloud with [source]', () => {
     const { model, errors } = parse('cloud Births [source]');
     expect(errors).toHaveLength(0);
-    expect(model!.clouds[0]).toMatchObject({ kind: 'cloud', id: 'Births', role: 'source' });
+    expect((model as SDModel).clouds[0]).toMatchObject({ kind: 'cloud', id: 'Births', role: 'source' });
   });
 
   it('parses a cloud with [sink]', () => {
     const { model, errors } = parse('cloud Deaths [sink]');
     expect(errors).toHaveLength(0);
-    expect(model!.clouds[0].role).toBe('sink');
+    expect((model as SDModel).clouds[0].role).toBe('sink');
   });
 
   it('defaults cloud role to source when omitted', () => {
     const { model, errors } = parse('cloud Births');
     expect(errors).toHaveLength(0);
-    expect(model!.clouds[0].role).toBe('source');
+    expect((model as SDModel).clouds[0].role).toBe('source');
   });
 
   it('parses a flow with default strength (medium)', () => {
@@ -60,7 +61,7 @@ flow Births -> Population : birth_rate (+)
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.flows[0]).toMatchObject({
+    expect((model as SDModel).flows[0]).toMatchObject({
       kind: 'flow', from: 'Births', to: 'Population',
       label: 'birth_rate', polarity: '+', strength: 'medium',
     });
@@ -74,7 +75,7 @@ flow B -> A : rate (+) strong
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.flows[0].strength).toBe('strong');
+    expect((model as SDModel).flows[0].strength).toBe('strong');
   });
 
   it('parses flow with explicit strength: weak', () => {
@@ -85,7 +86,7 @@ flow B -> A : rate (+) weak
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.flows[0].strength).toBe('weak');
+    expect((model as SDModel).flows[0].strength).toBe('weak');
   });
 
   it('parses flow with negative polarity', () => {
@@ -96,7 +97,7 @@ flow A -> B : loss (-) medium
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.flows[0].polarity).toBe('-');
+    expect((model as SDModel).flows[0].polarity).toBe('-');
   });
 
   it('parses a standalone aux', () => {
@@ -107,8 +108,8 @@ connector pressure <- A (+)
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.auxiliaries).toHaveLength(1);
-    expect(model!.auxiliaries[0].id).toBe('pressure');
+    expect((model as SDModel).auxiliaries).toHaveLength(1);
+    expect((model as SDModel).auxiliaries[0].id).toBe('pressure');
   });
 
   it('parses aux with inline connector', () => {
@@ -118,9 +119,9 @@ aux carrying_capacity <- Population (-)
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.auxiliaries).toHaveLength(1);
-    expect(model!.connectors).toHaveLength(1);
-    expect(model!.connectors[0]).toMatchObject({ from: 'Population', to: 'carrying_capacity', polarity: '-' });
+    expect((model as SDModel).auxiliaries).toHaveLength(1);
+    expect((model as SDModel).connectors).toHaveLength(1);
+    expect((model as SDModel).connectors[0]).toMatchObject({ from: 'Population', to: 'carrying_capacity', polarity: '-' });
   });
 
   it('parses aux with multi-source inline connectors', () => {
@@ -131,9 +132,9 @@ aux energy_pressure <- OilSupply (-), GasSupply (-)
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.connectors).toHaveLength(2);
-    expect(model!.connectors[0]).toMatchObject({ from: 'OilSupply', to: 'energy_pressure', polarity: '-' });
-    expect(model!.connectors[1]).toMatchObject({ from: 'GasSupply', to: 'energy_pressure', polarity: '-' });
+    expect((model as SDModel).connectors).toHaveLength(2);
+    expect((model as SDModel).connectors[0]).toMatchObject({ from: 'OilSupply', to: 'energy_pressure', polarity: '-' });
+    expect((model as SDModel).connectors[1]).toMatchObject({ from: 'GasSupply', to: 'energy_pressure', polarity: '-' });
   });
 
   it('parses a connector', () => {
@@ -144,7 +145,7 @@ connector GDP <- Population (+)
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.connectors[0]).toMatchObject({ from: 'Population', to: 'GDP', polarity: '+' });
+    expect((model as SDModel).connectors[0]).toMatchObject({ from: 'Population', to: 'GDP', polarity: '+' });
   });
 
   it('parses multi-source connector into N connector objects', () => {
@@ -156,7 +157,7 @@ connector C <- A (+), B (-)
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.connectors).toHaveLength(2);
+    expect((model as SDModel).connectors).toHaveLength(2);
   });
 
   it('parses connector targeting a flow label (valve)', () => {
@@ -168,7 +169,7 @@ connector birth_rate <- Population (+)
     `;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.connectors[0]).toMatchObject({ from: 'Population', to: 'birth_rate' });
+    expect((model as SDModel).connectors[0]).toMatchObject({ from: 'Population', to: 'birth_rate' });
   });
 
   it('parses @name metadata', () => {
@@ -238,22 +239,22 @@ stock B
     const dsl = (await import('../fixtures/population.sd?raw')).default;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.stocks).not.toHaveLength(0);
-    expect(model!.clouds).not.toHaveLength(0);
-    expect(model!.flows).not.toHaveLength(0);
-    expect(model!.auxiliaries).not.toHaveLength(0);
-    expect(model!.connectors).not.toHaveLength(0);
+    expect((model as SDModel).stocks).not.toHaveLength(0);
+    expect((model as SDModel).clouds).not.toHaveLength(0);
+    expect((model as SDModel).flows).not.toHaveLength(0);
+    expect((model as SDModel).auxiliaries).not.toHaveLength(0);
+    expect((model as SDModel).connectors).not.toHaveLength(0);
   });
 
   it('factory_dynamics fixture has all five element types', async () => {
     const dsl = (await import('../fixtures/factory_dynamics.sd?raw')).default;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect(model!.stocks).not.toHaveLength(0);
-    expect(model!.clouds).not.toHaveLength(0);
-    expect(model!.flows).not.toHaveLength(0);
-    expect(model!.auxiliaries).not.toHaveLength(0);
-    expect(model!.connectors).not.toHaveLength(0);
+    expect((model as SDModel).stocks).not.toHaveLength(0);
+    expect((model as SDModel).clouds).not.toHaveLength(0);
+    expect((model as SDModel).flows).not.toHaveLength(0);
+    expect((model as SDModel).auxiliaries).not.toHaveLength(0);
+    expect((model as SDModel).connectors).not.toHaveLength(0);
   });
 });
 

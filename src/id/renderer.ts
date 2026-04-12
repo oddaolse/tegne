@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import type { IDModel, IDElement, IDConnection, IDGroup, LabelCorner, Position } from './types';
+import type { IDModel, IDElement, IDGroup, LabelCorner, Position, Platform, IDState } from './types';
 import { getTheme } from '../themes';
 import type { IDTheme } from '../themes';
 import { pageRect } from '../sd/renderer';
@@ -339,6 +339,120 @@ function drawMetaBox(
   });
 }
 
+// ── Legend box ────────────────────────────────────────────────────────────────
+
+const PLATFORM_ORDER: Platform[] = ['aws', 'azure', 'gcp', 'oracle', 'on-prem'];
+const STATE_ORDER: IDState[]     = ['current', 'new', 'changing', 'decommissioned'];
+
+function drawLegendBox(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  model: IDModel,
+  theme: IDTheme,
+): void {
+  const seen = new Set<string>();
+  const entries: Array<{ platform: Platform; state: IDState }> = [];
+  for (const el of model.elements) {
+    const key = `${el.platform}:${el.state}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      entries.push({ platform: el.platform, state: el.state });
+    }
+  }
+  if (entries.length === 0) return;
+
+  entries.sort((a, b) => {
+    const pd = PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform);
+    if (pd !== 0) return pd;
+    return STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state);
+  });
+
+  const PAD      = 12;
+  const LINE_H   = 22;
+  const SWATCH_W = 22;
+  const SWATCH_H = 14;
+  const BOX_W    = 240;
+  const HEADER_H = LINE_H;
+  const BOX_H    = PAD * 2 + HEADER_H + entries.length * LINE_H;
+
+  const p     = pageRect(model.meta.orientation, model.meta.size);
+  const saved = model.savedPositions['__legend__'];
+  const BOX_X = saved?.x ?? (p.x + p.w - BOX_W - 16);
+  const BOX_Y = saved?.y ?? (p.y + 16);
+
+  const g = svg.append('g')
+    .attr('class', 'legend-box')
+    .attr('transform', `translate(${BOX_X},${BOX_Y})`)
+    .style('cursor', 'move');
+
+  g.append('rect')
+    .attr('x', 0).attr('y', 0)
+    .attr('width', BOX_W).attr('height', BOX_H)
+    .attr('rx', 4)
+    .attr('fill', theme.metaBox.fill)
+    .attr('stroke', theme.metaBox.stroke)
+    .attr('stroke-width', 1);
+
+  g.append('text')
+    .attr('x', PAD).attr('y', PAD + 11)
+    .attr('fill', theme.metaBox.text)
+    .attr('font-family', 'Courier New, Courier, monospace')
+    .attr('font-size', '11px')
+    .attr('font-style', 'italic')
+    .text('Legend');
+
+  entries.forEach((entry, i) => {
+    const rowY   = PAD + HEADER_H + i * LINE_H;
+    const border = getBorderStyle(entry.state);
+    const fill   = theme.platforms[entry.platform][entry.state];
+    const stroke = theme.platformColoredBorder ? fill : theme.borderStroke;
+
+    const swatch = g.append('rect')
+      .attr('x', PAD)
+      .attr('y', rowY + (LINE_H - SWATCH_H) / 2)
+      .attr('width', SWATCH_W)
+      .attr('height', SWATCH_H)
+      .attr('rx', 2)
+      .attr('fill', fill)
+      .attr('fill-opacity', border.fillOpacity)
+      .attr('stroke', stroke)
+      .attr('stroke-width', Math.min(border.strokeWidth, 2));
+    if (border.dashArray) swatch.attr('stroke-dasharray', border.dashArray);
+
+    const stateLabel = entry.state === 'current' ? '' : ` · ${entry.state}`;
+    g.append('text')
+      .attr('x', PAD + SWATCH_W + 8)
+      .attr('y', rowY + LINE_H / 2 + 4)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '11px')
+      .text(`${entry.platform}${stateLabel}`);
+  });
+}
+
+export function attachLegendBoxDrag(
+  svg: IdSvgSel,
+  model: IDModel,
+  onDragEnd?: () => void,
+): void {
+  let cx = 0, cy = 0;
+  const drag = d3.drag<SVGGElement, unknown>()
+    .on('start', function () {
+      const t = d3.select(this).attr('transform') ?? '';
+      const m = t.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      cx = m ? parseFloat(m[1]) : 0;
+      cy = m ? parseFloat(m[2]) : 0;
+    })
+    .on('drag', function (event) {
+      const ev = event as d3.D3DragEvent<SVGGElement, unknown, unknown>;
+      cx += ev.dx;
+      cy += ev.dy;
+      model.savedPositions['__legend__'] = { x: Math.round(cx), y: Math.round(cy) };
+      d3.select(this).attr('transform', `translate(${cx},${cy})`);
+    })
+    .on('end', () => onDragEnd?.());
+  svg.select<SVGGElement>('g.legend-box').call(drag);
+}
+
 // ── Drag ──────────────────────────────────────────────────────────────────────
 
 type IdSvgSel = d3.Selection<SVGSVGElement, unknown, null, undefined>;
@@ -379,6 +493,7 @@ export function idRender(svg: IdSvgSel, model: IDModel): void {
   drawGroups(svg, model, theme);
   drawConnections(svg, model, theme);
   drawElements(svg, model, theme);
+  drawLegendBox(svg, model, theme);
   drawMetaBox(svg, model, theme);
 }
 

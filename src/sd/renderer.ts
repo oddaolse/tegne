@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import type { SDModel, Node, Flow, Connector, FlowStrength, Position } from './types';
+import type { SDModel, Node, Flow, FlowStrength, Position } from './types';
 import { getTheme } from '../themes';
 import type { Theme } from '../themes';
 

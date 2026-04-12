@@ -26,17 +26,17 @@ store mobile_app  [consumer]  [label:"Mobile App Cache"]
 # Links
 link cis          -> cdp           : publish    [kafka]
 link cdp          -> loyalty_db    : replicate  [batch]
-link cdp          -> analytics_dw  : ingest
+link cdp          -> analytics_dw  : ingest     [file]
 link analytics_dw -> segment_db    : derive     [materialise]
 link ext_ref      -> cdp           : enrich     [cdc]
 link cdp          -> mobile_app    : serve
 link segment_db   -> mobile_app    : serve
 
 @position cis 183 260
-@position cdp 480 260
-@position loyalty_db 780 260
+@position cdp 558 259
+@position loyalty_db 921 261
 @position analytics_dw 482 623
 @position segment_db 784 622
-@position ext_ref 259 464
+@position ext_ref 210 421
 @position mobile_app 781 413
 @position __meta__ 50 760
