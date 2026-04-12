@@ -11,6 +11,7 @@ export interface ModelMeta {
   theme?:        string;
   orientation?:  'landscape' | 'portrait';
   size?:         'a4' | 'a3' | 'a2' | 'a1' | 'a0';
+  legend?:       boolean;   // ID only: show legend box (default: true)
 }
 
 export interface Position { x: number; y: number; }

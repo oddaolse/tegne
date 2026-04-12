@@ -74,6 +74,16 @@ export function parseID(lines: string[]): ParseResult {
           break;
         }
 
+        case '@legend': {
+          const v = value.toLowerCase();
+          if (v !== 'on' && v !== 'off') {
+            errors.push({ line: lineNum, message: `@legend must be on or off, got: "${value}"` });
+          } else {
+            meta.legend = v === 'on';
+          }
+          break;
+        }
+
         case '@position': {
           const parts = value.split(/\s+/);
           if (parts.length !== 3) {

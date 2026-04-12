@@ -120,7 +120,9 @@
       top: 48px;
       right: 16px;
       width: 480px;
-      max-height: 78vh;
+      height: 72vh;
+      min-width: 320px;
+      min-height: 180px;
       background: #1e1e2e;
       border: 1px solid #45475a;
       border-radius: 6px;
@@ -128,6 +130,8 @@
       z-index: 1000;
       flex-direction: column;
       font-size: 12px;
+      resize: both;
+      overflow: hidden;
     }
     #help-panel.visible { display: flex; }
 
@@ -240,6 +244,7 @@
 @author   Team
 @theme    dark | light | tokyo
 @size     a4 | a3 | a2 | a1 | a0
+@legend   on | off               # show/hide legend box (default: on)
 
 system    &lt;id&gt;  [aws|azure|gcp|oracle|on-prem]  [new|changing|decommissioned]
 database  &lt;id&gt;  [aws|azure|gcp|oracle|on-prem]  [new|changing|decommissioned]

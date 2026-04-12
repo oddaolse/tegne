@@ -85,7 +85,7 @@ const dark: Theme = {
     platforms: {
       'aws':     { current: '#FF9900', new: '#FFB84D', changing: '#CC7A00', decommissioned: '#585b70' },
       'azure':   { current: '#0078D4', new: '#2B9AF3', changing: '#005EA6', decommissioned: '#585b70' },
-      'on-prem': { current: '#6B7C3A', new: '#8A9E4A', changing: '#4E5B2A', decommissioned: '#585b70' },
+      'on-prem': { current: '#7AAB38', new: '#96C840', changing: '#5A8028', decommissioned: '#585b70' },
       'gcp':     { current: '#34A853', new: '#46C166', changing: '#267D3E', decommissioned: '#585b70' },
       'oracle':  { current: '#C74634', new: '#E05A45', changing: '#963428', decommissioned: '#585b70' },
     },
@@ -141,7 +141,7 @@ const light: Theme = {
     platforms: {
       'aws':     { current: '#E68A00', new: '#FF9900', changing: '#B36B00', decommissioned: '#9e9e9e' },
       'azure':   { current: '#0063B1', new: '#0078D4', changing: '#004E8C', decommissioned: '#9e9e9e' },
-      'on-prem': { current: '#4A5628', new: '#6B7C3A', changing: '#333D1C', decommissioned: '#9e9e9e' },
+      'on-prem': { current: '#5C8228', new: '#7AAB38', changing: '#3F5C1C', decommissioned: '#9e9e9e' },
       'gcp':     { current: '#1E8E3E', new: '#34A853', changing: '#146B2F', decommissioned: '#9e9e9e' },
       'oracle':  { current: '#A33525', new: '#C74634', changing: '#7A2718', decommissioned: '#9e9e9e' },
     },

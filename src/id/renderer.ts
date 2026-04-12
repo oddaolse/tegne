@@ -493,7 +493,7 @@ export function idRender(svg: IdSvgSel, model: IDModel): void {
   drawGroups(svg, model, theme);
   drawConnections(svg, model, theme);
   drawElements(svg, model, theme);
-  drawLegendBox(svg, model, theme);
+  if (model.meta.legend !== false) drawLegendBox(svg, model, theme);
   drawMetaBox(svg, model, theme);
 }
 
