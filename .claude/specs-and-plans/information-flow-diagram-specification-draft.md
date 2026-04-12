@@ -315,8 +315,8 @@ Border style may communicate lifecycle state if needed:
 
 - solid = current
 - thick = new
-- dotted = changing
-- greyed/dotted = decommissioning
+- dashed = changing
+- dotted = decommissioned
 
 However, lifecycle state is secondary in this diagram type. Informational role must remain the primary visual signal.
 
@@ -415,6 +415,7 @@ Version 1 is complete. It includes:
 - lifecycle state reflected in border style
 - drag-and-drop layout with `@position` persistence
 - draggable metadata box
+- `changing` state rendered with 50% fill-opacity (transparency) + dashed border
 
 ---
 

@@ -47,6 +47,8 @@ Written automatically by the **Save** action. Do not edit manually.
 - Elements without a saved position fall back to auto-layout
 - The reserved key `__meta__` stores the position of the metadata box:
   `@position __meta__ <x> <y>`
+- The reserved key `__legend__` stores the position of the legend box (ID diagrams only):
+  `@position __legend__ <x> <y>`
 
 ---
 
@@ -103,6 +105,14 @@ Two-column layout:
 - Always exported at full page zoom (current pan/zoom state is ignored)
 - `data-*` attributes stripped before export
 - Self-contained — no external fonts or resources
+
+### Help Panel
+
+- A **Help** button sits after the Export SVG button in the right toolbar
+- Clicking toggles a floating, draggable panel — it does not block or dim the rest of the UI
+- The panel shows a short description and full DSL syntax for each diagram type (ID and infoflow)
+- Draggable by the header bar; × button also closes it
+- Panel position is not persisted — resets to upper-right on each page load
 
 ### Error Handling
 
@@ -256,12 +266,12 @@ Every element declares its platform in square brackets. This controls fill colou
 
 An optional second bracket sets the lifecycle state of an element.
 
-| State                | Border               | Fill                             |
-|----------------------|----------------------|----------------------------------|
-| *(absent — current)* | Solid, normal weight | Full platform colour             |
-| `[new]`              | Solid, thick         | Bright/saturated platform colour |
-| `[changing]`         | Dotted               | Muted platform colour            |
-| `[decommissioned]`   | Dotted               | Grey                             |
+| State                | Border               | Fill                              |
+|----------------------|----------------------|-----------------------------------|
+| *(absent — current)* | Solid, normal weight | Full platform colour              |
+| `[new]`              | Solid, thick         | Bright/saturated platform colour  |
+| `[changing]`         | Dashed               | Platform colour at 50% opacity    |
+| `[decommissioned]`   | Dotted               | Grey                              |
 
 ### Connections
 
@@ -289,6 +299,14 @@ end
 - The label appears in the specified corner (default: `upper-right`)
 - Dragging the group background moves all members together
 - Groups cannot be nested; an element can belong to at most one group
+
+### Legend Box
+
+An auto-generated legend is rendered in the **upper-right corner** of the page.
+
+- Shows only the platform/state combinations that are actually in use in the diagram
+- Each entry displays a colour swatch (with correct fill, opacity, and border style) and a label
+- **Draggable** — position persisted via `@position __legend__ x y`
 
 ### DSL Example
 

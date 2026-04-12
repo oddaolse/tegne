@@ -108,12 +108,14 @@ Tokyo canvas background: `#0d0d14`. Glow: `feGaussianBlur stdDeviation=3`.
 
 ### Border Styles
 
-| State | stroke-width | stroke-dasharray |
-|---|---|---|
-| current | 2px | solid |
-| new | 4px | solid |
-| changing | 2px | `6,4` |
-| decommissioned | 2px | `2,4` |
+| State | stroke-width | stroke-dasharray | fill-opacity |
+|---|---|---|---|
+| current | 2px | solid | 1.0 |
+| new | 4px | solid | 1.0 |
+| changing | 2px | `6,4` | **0.5** |
+| decommissioned | 2px | `2,4` | 1.0 |
+
+`changing` elements render at 50% fill-opacity — the platform colour is unchanged but appears semi-transparent, signalling in-flight work without losing platform identity. This is implemented in `getBorderStyle()` in `src/id/shapes.ts` via the `fillOpacity` field on `BorderStyle`.
 
 ### Arrow Styles
 
@@ -123,6 +125,19 @@ Tokyo canvas background: `#0d0d14`. Glow: `feGaussianBlur stdDeviation=3`.
 | All other connections | Closed/filled arrowhead |
 
 ---
+
+## Legend Box
+
+Rendered automatically in the **upper-right corner** of the page area. Present only in ID diagrams.
+
+- Scans `model.elements` for unique `(platform, state)` combinations actually in use — does not show unused combinations
+- Each row: a small swatch rect (22×14px, rx=2) using the correct platform fill, `fill-opacity`, and border style, followed by a text label (`aws`, `azure · changing`, etc.)
+- Sorted by platform order then state order for consistent layout
+- Header: `Legend` in italic at the top
+- Background and text colours from `theme.metaBox` — same palette as the metadata box
+- **Draggable** — `attachLegendBoxDrag()` exported from `id/renderer.ts`, called from `main.ts`
+- Position persisted via `@position __legend__ x y` alongside element positions
+- If no elements are in the model, the legend box is not rendered
 
 ## Layout (`src/id-layout.ts`)
 

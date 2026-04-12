@@ -178,6 +178,8 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] `@theme` directive supported in ID diagrams
 - [x] Drag support — elements draggable; connections redraw on move
 - [x] Groupings — `group <id> <label> [label:corner]` / `end` blocks; named boundary rect; draggable as a unit
+- [x] `changing` state — dashed border + 50% fill-opacity (platform colour unchanged, rendered semi-transparent)
+- [x] Legend box — upper-right canvas annotation; shows only platform/state combinations in use; draggable; position persisted as `@position __legend__`
 
 ### Information Flow Diagram (`@type infoflow`)
 - [x] `store <id> [<role>]` — data store node; 7 roles: `master`, `replica`, `derived`, `aggregate`, `golden`, `reference`, `consumer`
@@ -191,6 +193,9 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Groupings — `group <id> <label> [label:corner]` / `end` blocks; draggable as a unit
 - [x] Save as `.iff` file with `@position` directives
 - [x] Fixture: `fixtures/customer_information.iff`
+
+### UI
+- [x] Help panel — floating, draggable, non-blocking; toggled by Help button after Export SVG; shows DSL syntax for `id` and `infoflow` diagram types
 
 ---
 

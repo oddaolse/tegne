@@ -6,9 +6,8 @@ A browser-based diagram editor for structural and visual modelling. Write a mode
 
 Supports three diagram types:
 - **Stock-and-Flow diagrams** (`@type sd`) — Forrester/System Dynamics structural modelling
-- **Integration diagrams** (`@type id`) — IT architecture, showing systems, databases, queues, and 
-their connections
-- **Information Flow Diagram** (`@type infoflow`) shows how information is owned, copied, transformed, enriched, and aggregated across systems.
+- **Integration diagrams** (`@type id`) — IT architecture, showing systems, databases, queues, and their connections
+- **Information Flow diagrams** (`@type infoflow`) — data landscape showing how information is owned, replicated, derived, and consumed across stores
 ---
 
 ## Quick Start
@@ -26,12 +25,13 @@ No server required. Everything runs in the browser.
 ## Workflow
 
 1. **Write** a model in the DSL editor (left panel)
-2. **Open** an existing `.sd` or `.id` or `.iff` file — renders automatically
+2. **Open** an existing `.sd`, `.id`, or `.iff` file — renders automatically
 3. **Fix errors** shown in the red panel below the editor — the last valid diagram stays on screen
 4. **Drag** any element to correct the auto-layout
 5. **Zoom** with `+` / `−` buttons or scroll the canvas; **⊡** resets to full page
 6. **Save** to write a file that preserves both the model and your layout
 7. **Export SVG** to download a standalone `.svg` for use in presentations or documents
+8. **Help** to open a floating syntax reference panel — can be kept open alongside your diagram
 
 ---
 
@@ -177,7 +177,7 @@ Override label placement with `[label:inside]` or `[label:below]`.
 |-------|--------|------|
 | *(absent — current)* | Solid | Full platform colour |
 | `[new]` | Solid, thick | Bright platform colour |
-| `[changing]` | Dashed | Muted platform colour |
+| `[changing]` | Dashed | Platform colour at 50% opacity |
 | `[decommissioned]` | Dotted | Grey |
 
 ### Connections
@@ -190,42 +190,77 @@ Override label placement with `[label:inside]` or `[label:below]`.
 
 The `tokyo` theme renders integration diagrams with full neon colours — glowing platform fills on a near-black canvas.
 
+### Legend box
+
+A legend is auto-generated in the upper-right corner showing every platform/state combination in use. Each entry shows a colour swatch with the correct fill, opacity, and border style. The legend is draggable and its position is saved.
+
 ---
 
 ## Information Flow Diagram (`@type infoflow`)
 
-### Node semantics
+### Purpose
 
-Each node represents a system, store, or data-holding component with a defined informational role.
+For data architects documenting a data landscape — where data lives, what role each store plays, and how data moves between stores. Focuses on data ownership and semantics, not transport mechanics.
 
-The key distinction is not deployment technology, but **data role**.
+### DSL Syntax
 
-Recommended core roles:
+```
+@type     infoflow
+@name     My Data Landscape
+@version  1.0
+@author   Team
+@theme    dark             # dark (default), light, or tokyo
+@size     a4               # a4 (default), a3, a2, a1, a0
 
-- `master`
-- `replica`
-- `derived`
-- `aggregate`
-- `golden`
-- `reference`
-- `consumer`
+# store  id  [role]  [state]  [label:"Human Readable Name"]
+store crm        [master]
+store cdp        [golden]    [label:"Customer Data Platform"]
+store search_idx [replica]   [new]
+store sales_dw   [aggregate] [changing]
 
-### Link semantics
+# link  from  ->  to  : relationship  [transport]
+link crm        -> cdp        : publish    [kafka]
+link cdp        -> search_idx : replicate  [cdc]
+link crm        -> sales_dw   : ingest     [batch]
 
-Each link represents an information relationship.
+group customer_domain Customer Domain [label:upper-left]
+  store crm [master]
+  store cdp [golden]
+end
+```
 
-Core relationship types:
+### Roles
 
-- `replicate`
-- `publish`
-- `ingest`
-- `derive`
-- `aggregate`
-- `enrich`
-- `merge`
-- `serve`
+| Role | Meaning |
+|---|---|
+| `master` | System of record — authoritative source |
+| `replica` | Exact copy kept in sync |
+| `derived` | Computed or transformed from source data |
+| `aggregate` | Rolled-up or summarised from multiple sources |
+| `golden` | Curated, cleansed master — highest quality |
+| `reference` | Stable lookup data (e.g. country codes) |
+| `consumer` | Read-only downstream sink |
 
-The relationship keyword describes the informational meaning of the movement. Technical protocol belongs in the optional transport bracket.
+### Relationships
+
+| Keyword | Meaning |
+|---|---|
+| `replicate` | Byte-for-byte copy kept in sync |
+| `publish` | Events pushed to a broker or stream |
+| `ingest` | Bulk load or batch import |
+| `derive` | Transform or compute a new dataset |
+| `aggregate` | Roll up or combine multiple sources |
+| `enrich` | Add fields from the source to an existing dataset |
+| `merge` | Reconcile multiple stores into one |
+| `serve` | Expose data to a downstream consumer |
+
+### Lifecycle states
+
+Same states as Integration Diagram — `[new]`, `[changing]`, `[decommissioned]` — reflected in border style.
+
+### Groupings
+
+Same `group` / `end` syntax as Integration Diagram. Preferred use is domain or ownership grouping.
 
 ---
 
@@ -234,22 +269,30 @@ The relationship keyword describes the informational meaning of the movement. Te
 
 ```
 src/
-  types.ts        — all model interfaces and type definitions
-  parser.ts       — DSL entry point; dispatches to sd or id parser
-  parser.ts       — SD DSL → SDModel
-  id-parser.ts    — ID DSL → IDModel
-  layout.ts       — SD auto-layout
-  id-layout.ts    — ID auto-layout (grid)
-  renderer.ts     — SD SVG rendering via D3
-  id-renderer.ts  — ID SVG rendering via D3
-  drag.ts         — SD drag behaviour
-  export.ts       — SVG export and file save (.sd and .id)
-  themes.ts       — colour theme definitions (dark, light, tokyo)
   main.ts         — wires UI; routes to correct pipeline by @type
+  types.ts        — shared types and re-exports from sub-modules
+  parser.ts       — DSL entry point; pre-scans @type, dispatches
+  themes.ts       — colour themes (dark, light, tokyo)
+  export.ts       — SVG export, .sd / .id / .iff save
+  env.d.ts        — File System Access API + Vite ?raw declarations
+  sd/             — Forrester Stock-and-Flow
+    types.ts, parser.ts, layout.ts, renderer.ts, drag.ts
+  id/             — Integration Diagram
+    types.ts, parser.ts, layout.ts, renderer.ts, shapes.ts
+  iff/            — Information Flow Diagram
+    types.ts, parser.ts, layout.ts, renderer.ts, shapes.ts
 fixtures/
-  population.sd           — SD: simple model, all five element types
-  factory_dynamics.sd     — SD: Forrester production-distribution chain
-  integration_example.id  — ID: e-commerce platform, all element types and states
+  population.sd              — SD: simple model, all five element types
+  factory_dynamics.sd        — SD: Forrester production-distribution chain
+  integration_example.id     — ID: e-commerce platform, all element types and states
+  banking_platform.id        — ID: digital banking platform, all platforms and states, four groups
+  e-commerce-platform.id     — ID: e-commerce platform variant
+  digital-banking-platform.id — ID: digital banking variant
+  customer_information.iff   — IFF: customer data landscape, all 7 roles, two groups
+tests/
+  parser.test.ts       — SD parser unit tests
+  id-parser.test.ts    — ID parser unit tests
+  iff-parser.test.ts   — IFF parser unit tests
 ```
 
 ---
