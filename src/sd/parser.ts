@@ -124,6 +124,16 @@ export function parseSD(lines: string[]): ParseResult {
           break;
         }
 
+        case '@legend': {
+          const v = value.toLowerCase();
+          if (v !== 'on' && v !== 'off') {
+            errors.push({ line: lineNum, message: `@legend must be on or off, got: "${value}"` });
+          } else {
+            meta.legend = v === 'on';
+          }
+          break;
+        }
+
         default:
           errors.push({ line: lineNum, message: `Unknown directive: ${keyword}` });
       }

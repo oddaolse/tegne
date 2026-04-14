@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import type { IFFModel, IFFStore, IFFGroup, IFFLabelCorner, Position } from './types';
+import type { IFFModel, IFFStore, IFFGroup, IFFLabelCorner, IFFRole, Position } from './types';
 import { getTheme } from '../themes';
 import type { IFFTheme } from '../themes';
 import { pageRect } from '../sd/renderer';
@@ -276,6 +276,72 @@ function drawMetaBox(
   });
 }
 
+// ── Legend box ────────────────────────────────────────────────────────────────
+
+const IFF_ROLE_ORDER: IFFRole[] = [
+  'master', 'replica', 'derived', 'aggregate', 'golden', 'reference', 'consumer',
+];
+
+function drawIffLegendBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
+  const presentRoles = new Set(model.stores.map(s => s.role));
+  const entries = IFF_ROLE_ORDER.filter(r => presentRoles.has(r));
+  if (entries.length === 0) return;
+
+  const PAD      = 12;
+  const LINE_H   = 22;
+  const SWATCH_W = 22;
+  const SWATCH_H = 14;
+  const BOX_W    = 190;
+  const HEADER_H = LINE_H;
+  const BOX_H    = PAD * 2 + HEADER_H + entries.length * LINE_H;
+
+  const p     = pageRect(model.meta.orientation, model.meta.size);
+  const saved = model.savedPositions['__legend__'];
+  const BOX_X = saved?.x ?? (p.x + p.w - BOX_W - 16);
+  const BOX_Y = saved?.y ?? (p.y + 16);
+
+  const g = svg.append('g')
+    .attr('class', 'legend-box')
+    .attr('transform', `translate(${BOX_X},${BOX_Y})`)
+    .style('cursor', 'move');
+
+  g.append('rect')
+    .attr('x', 0).attr('y', 0)
+    .attr('width', BOX_W).attr('height', BOX_H)
+    .attr('rx', 4)
+    .attr('fill', theme.metaBox.fill)
+    .attr('stroke', theme.metaBox.stroke)
+    .attr('stroke-width', 1);
+
+  g.append('text')
+    .attr('x', PAD).attr('y', PAD + 11)
+    .attr('fill', theme.metaBox.text)
+    .attr('font-family', 'Courier New, Courier, monospace')
+    .attr('font-size', '11px')
+    .attr('font-style', 'italic')
+    .text('Legend');
+
+  entries.forEach((role, i) => {
+    const rowY = PAD + HEADER_H + i * LINE_H;
+    g.append('rect')
+      .attr('x', PAD)
+      .attr('y', rowY + (LINE_H - SWATCH_H) / 2)
+      .attr('width', SWATCH_W)
+      .attr('height', SWATCH_H)
+      .attr('rx', 2)
+      .attr('fill', theme.roles[role])
+      .attr('stroke', theme.borderStroke)
+      .attr('stroke-width', 1);
+    g.append('text')
+      .attr('x', PAD + SWATCH_W + 8)
+      .attr('y', rowY + LINE_H / 2 + 4)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '11px')
+      .text(role);
+  });
+}
+
 // ── Drag ──────────────────────────────────────────────────────────────────────
 
 type IffSvgSel = d3.Selection<SVGSVGElement, unknown, null, undefined>;
@@ -322,6 +388,30 @@ export function attachIffGroupDrag(svg: IffSvgSel, model: IFFModel, onDragEnd?: 
   svg.selectAll<SVGGElement, unknown>('g.iff-group').call(drag);
 }
 
+export function attachIffLegendBoxDrag(
+  svg: IffSvgSel,
+  model: { savedPositions: Record<string, Position> },
+  onDragEnd?: () => void,
+): void {
+  let cx = 0, cy = 0;
+  const drag = d3.drag<SVGGElement, unknown>()
+    .on('start', function () {
+      const t = d3.select(this).attr('transform') ?? '';
+      const m = t.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      cx = m ? parseFloat(m[1]) : 0;
+      cy = m ? parseFloat(m[2]) : 0;
+    })
+    .on('drag', function (event) {
+      const ev = event as d3.D3DragEvent<SVGGElement, unknown, unknown>;
+      cx += ev.dx;
+      cy += ev.dy;
+      model.savedPositions['__legend__'] = { x: Math.round(cx), y: Math.round(cy) };
+      d3.select(this).attr('transform', `translate(${cx},${cy})`);
+    })
+    .on('end', () => onDragEnd?.());
+  svg.select<SVGGElement>('g.legend-box').call(drag);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function iffRender(svg: IffSvgSel, model: IFFModel): void {
@@ -340,6 +430,7 @@ export function iffRender(svg: IffSvgSel, model: IFFModel): void {
   drawGroups(svg, model, theme);
   drawLinks(svg, model, theme);
   drawStores(svg, model, theme);
+  if (model.meta.legend !== false) drawIffLegendBox(svg, model, theme);
   drawMetaBox(svg, model, theme);
 }
 
@@ -349,5 +440,6 @@ export function iffRedrawLinks(svg: IffSvgSel, model: IFFModel): void {
   drawLinks(svg, model, theme);
   updateGroupRects(svg, model);
   svg.selectAll('g.iff-node').raise();
+  svg.selectAll('.legend-box').raise();
   svg.selectAll('.meta-box').raise();
 }

@@ -441,6 +441,149 @@ export function attachMetaBoxDrag(
   svg.select<SVGGElement>('g.meta-box').call(drag);
 }
 
+// ── Legend box ────────────────────────────────────────────────────────────────
+
+function drawSDLegendBox(svg: SvgSel, model: SDModel, theme: Theme): void {
+  const PAD      = 12;
+  const LINE_H   = 24;
+  const ICON_W   = 36;
+  const ICON_H   = 16;
+  const BOX_W    = 190;
+  const HEADER_H = LINE_H;
+
+  interface LegendEntry { label: string; draw: (g: d3.Selection<SVGGElement, unknown, null, undefined>) => void; }
+  const entries: LegendEntry[] = [];
+
+  if (model.stocks.length > 0) {
+    entries.push({ label: 'stock', draw: g => {
+      g.append('rect')
+        .attr('x', 0).attr('y', 0)
+        .attr('width', ICON_W).attr('height', ICON_H)
+        .attr('rx', 3)
+        .attr('fill', theme.stock.fill)
+        .attr('stroke', theme.stock.stroke)
+        .attr('stroke-width', 1.5);
+    }});
+  }
+
+  if (model.clouds.length > 0) {
+    entries.push({ label: 'cloud', draw: g => {
+      const sx = ICON_W / 76, sy = ICON_H / 52;
+      g.append('path')
+        .attr('d', CLOUD_PATH)
+        .attr('transform', `translate(${ICON_W / 2},${ICON_H / 2}) scale(${sx},${sy})`)
+        .attr('fill', theme.cloud.fill)
+        .attr('stroke', theme.cloud.stroke)
+        .attr('stroke-width', 1);
+    }});
+  }
+
+  if (model.auxiliaries.length > 0) {
+    entries.push({ label: 'auxiliary', draw: g => {
+      g.append('circle')
+        .attr('cx', ICON_W / 2).attr('cy', ICON_H / 2)
+        .attr('r', ICON_H / 2)
+        .attr('fill', theme.aux.fill)
+        .attr('stroke', theme.aux.stroke)
+        .attr('stroke-width', 1.5);
+    }});
+  }
+
+  if (model.flows.length > 0) {
+    entries.push({ label: 'flow', draw: g => {
+      g.append('line')
+        .attr('x1', 0).attr('y1', ICON_H / 2)
+        .attr('x2', ICON_W).attr('y2', ICON_H / 2)
+        .attr('stroke', theme.flow.medium)
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '8,4');
+      g.append('circle')
+        .attr('cx', ICON_W / 2).attr('cy', ICON_H / 2)
+        .attr('r', 5)
+        .attr('fill', theme.flow.valveFill)
+        .attr('stroke', theme.flow.medium)
+        .attr('stroke-width', 1.5);
+    }});
+  }
+
+  if (model.connectors.length > 0) {
+    entries.push({ label: 'connector', draw: g => {
+      g.append('line')
+        .attr('x1', 0).attr('y1', ICON_H / 2)
+        .attr('x2', ICON_W).attr('y2', ICON_H / 2)
+        .attr('stroke', theme.connector.stroke)
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '6,3');
+    }});
+  }
+
+  if (entries.length === 0) return;
+
+  const BOX_H = PAD * 2 + HEADER_H + entries.length * LINE_H;
+  const p     = pageRect(model.meta.orientation, model.meta.size);
+  const saved = model.savedPositions['__legend__'];
+  const BOX_X = saved?.x ?? (p.x + p.w - BOX_W - 16);
+  const BOX_Y = saved?.y ?? (p.y + 16);
+
+  const g = svg.append('g')
+    .attr('class', 'legend-box')
+    .attr('transform', `translate(${BOX_X},${BOX_Y})`)
+    .style('cursor', 'move');
+
+  g.append('rect')
+    .attr('x', 0).attr('y', 0)
+    .attr('width', BOX_W).attr('height', BOX_H)
+    .attr('rx', 4)
+    .attr('fill', theme.metaBox.fill)
+    .attr('stroke', theme.metaBox.stroke)
+    .attr('stroke-width', 1);
+
+  g.append('text')
+    .attr('x', PAD).attr('y', PAD + 11)
+    .attr('fill', theme.metaBox.text)
+    .attr('font-family', 'Courier New, Courier, monospace')
+    .attr('font-size', '11px')
+    .attr('font-style', 'italic')
+    .text('Legend');
+
+  entries.forEach((entry, i) => {
+    const rowY = PAD + HEADER_H + i * LINE_H;
+    const rowG = g.append<SVGGElement>('g').attr('transform', `translate(${PAD},${rowY + (LINE_H - ICON_H) / 2})`);
+    entry.draw(rowG);
+    g.append('text')
+      .attr('x', PAD + ICON_W + 8)
+      .attr('y', rowY + LINE_H / 2 + 4)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '11px')
+      .text(entry.label);
+  });
+}
+
+export function attachSDLegendBoxDrag(
+  svg: SvgSel,
+  model: { savedPositions: Record<string, Position> },
+  onDragEnd?: () => void,
+): void {
+  let cx = 0, cy = 0;
+  const drag = d3.drag<SVGGElement, unknown>()
+    .on('start', function () {
+      const t = d3.select(this).attr('transform') ?? '';
+      const m = t.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      cx = m ? parseFloat(m[1]) : 0;
+      cy = m ? parseFloat(m[2]) : 0;
+    })
+    .on('drag', function (event) {
+      const ev = event as d3.D3DragEvent<SVGGElement, unknown, unknown>;
+      cx += ev.dx;
+      cy += ev.dy;
+      model.savedPositions['__legend__'] = { x: Math.round(cx), y: Math.round(cy) };
+      d3.select(this).attr('transform', `translate(${cx},${cy})`);
+    })
+    .on('end', () => onDragEnd?.());
+  svg.select<SVGGElement>('g.legend-box').call(drag);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export type SvgSel = d3.Selection<SVGSVGElement, unknown, null, undefined>;
@@ -464,6 +607,7 @@ export function render(svg: SvgSel, model: SDModel): void {
   drawStocks(svg, model, theme);
   drawClouds(svg, model, theme);
   drawAuxiliaries(svg, model, theme);
+  if (model.meta.legend !== false) drawSDLegendBox(svg, model, theme);
   drawMetaBox(svg, model, theme);
 }
 
@@ -473,7 +617,8 @@ export function redrawConnectors(svg: SvgSel, model: SDModel): void {
   svg.selectAll('.connector-group').remove();
   drawFlows(svg, model, theme);
   drawConnectors(svg, model, theme);
-  // Bring nodes and meta box back to front
+  // Bring nodes, legend box, and meta box back to front
   svg.selectAll('g.node').raise();
+  svg.selectAll('.legend-box').raise();
   svg.selectAll('.meta-box').raise();
 }

@@ -89,6 +89,16 @@ export function parseIFF(lines: string[]): ParseResult {
           savedPositions[nodeId] = { x: Math.round(x), y: Math.round(y) };
           break;
         }
+        case '@legend': {
+          const v = value.toLowerCase();
+          if (v !== 'on' && v !== 'off') {
+            errors.push({ line: lineNum, message: `@legend must be on or off, got: "${value}"` });
+          } else {
+            meta.legend = v === 'on';
+          }
+          break;
+        }
+
         default:
           errors.push({ line: lineNum, message: `Unknown directive: ${keyword}` });
       }

@@ -1,12 +1,12 @@
 import * as d3 from 'd3';
 import { parse } from './parser';
 import { layout } from './sd/layout';
-import { render, pageRect, attachMetaBoxDrag } from './sd/renderer';
+import { render, pageRect, attachMetaBoxDrag, attachSDLegendBoxDrag } from './sd/renderer';
 import { attachDrag } from './sd/drag';
 import { idLayout } from './id/layout';
 import { idRender, attachIdDrag, attachGroupDrag, attachLegendBoxDrag } from './id/renderer';
 import { iffLayout } from './iff/layout';
-import { iffRender, attachIffDrag, attachIffGroupDrag } from './iff/renderer';
+import { iffRender, attachIffDrag, attachIffGroupDrag, attachIffLegendBoxDrag } from './iff/renderer';
 import { exportSVG, saveSD, saveID, saveIFF } from './export';
 import type { SDModel, IDModel, IFFModel } from './types';
 
@@ -128,12 +128,14 @@ function runRender(): void {
     iffRender(svg, iffModel);
     attachIffDrag(svg, iffModel, () => updateEditorPositions(iffModel));
     attachIffGroupDrag(svg, iffModel, () => updateEditorPositions(iffModel));
+    attachIffLegendBoxDrag(svg, iffModel, () => updateEditorPositions(iffModel));
     attachMetaBoxDrag(svg, iffModel, () => updateEditorPositions(iffModel));
   } else {
     const sdModel = model as SDModel;
     layout(sdModel);
     render(svg, sdModel);
     attachDrag(svg, sdModel, () => updateEditorPositions(sdModel));
+    attachSDLegendBoxDrag(svg, sdModel, () => updateEditorPositions(sdModel));
     attachMetaBoxDrag(svg, sdModel, () => updateEditorPositions(sdModel));
   }
 
