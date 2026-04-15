@@ -134,6 +134,16 @@ export function parseSD(lines: string[]): ParseResult {
           break;
         }
 
+        case '@show-ids': {
+          const v = value.toLowerCase();
+          if (v !== 'on' && v !== 'off') {
+            errors.push({ line: lineNum, message: `@show-ids must be on or off, got: "${value}"` });
+          } else {
+            meta.showIds = v === 'on';
+          }
+          break;
+        }
+
         default:
           errors.push({ line: lineNum, message: `Unknown directive: ${keyword}` });
       }

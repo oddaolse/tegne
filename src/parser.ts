@@ -2,6 +2,7 @@ import type { ParseResult } from './types';
 import { parseSD }  from './sd/parser';
 import { parseID }  from './id/parser';
 import { parseIFF } from './iff/parser';
+import { parseTM }  from './tm/parser';
 
 export function parse(dsl: string): ParseResult {
   const lines = dsl.split('\n');
@@ -13,6 +14,7 @@ export function parse(dsl: string): ParseResult {
       const value = trimmed.slice('@type'.length).trim();
       if (value === 'id')       return parseID(lines);
       if (value === 'infoflow') return parseIFF(lines);
+      if (value === 'tm')       return parseTM(lines);
       if (value === 'sd')       break;  // fall through to SD parser
       // Unknown type — let the SD parser emit the error
       break;

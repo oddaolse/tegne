@@ -1,9 +1,9 @@
-import type { SDModel, IDModel, IFFModel, Node } from './types';
+import type { SDModel, IDModel, IFFModel, TMModel, Node } from './types';
 import { pageRect } from './sd/renderer';
 
 // ── SVG Export ────────────────────────────────────────────────────────────────
 
-export async function exportSVG(svgEl: SVGSVGElement, model: SDModel | IDModel | IFFModel): Promise<void> {
+export async function exportSVG(svgEl: SVGSVGElement, model: SDModel | IDModel | IFFModel | TMModel): Promise<void> {
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
 
   // Always export at full page zoom (ignore current pan/zoom state)
@@ -94,9 +94,36 @@ export async function saveIFF(dslText: string, model: IFFModel): Promise<void> {
   ]);
 }
 
+// ── TM File Save ─────────────────────────────────────────────────────────────
+
+export async function saveTM(dslText: string, model: TMModel): Promise<void> {
+  const stripped = dslText
+    .split('\n')
+    .filter(l => !l.trim().startsWith('@position'))
+    .join('\n')
+    .trimEnd();
+
+  let posLines = model.refs
+    .map(r => `@position ${r.id} ${Math.round(r.x)} ${Math.round(r.y)}`)
+    .join('\n');
+
+  const metaPos = model.savedPositions['__meta__'];
+  if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
+  const mitPos = model.savedPositions['__mitigations__'];
+  if (mitPos)  posLines += `\n@position __mitigations__ ${Math.round(mitPos.x)} ${Math.round(mitPos.y)}`;
+  const strideKeyPos = model.savedPositions['__stride_key__'];
+  if (strideKeyPos) posLines += `\n@position __stride_key__ ${Math.round(strideKeyPos.x)} ${Math.round(strideKeyPos.y)}`;
+
+  const content = `${stripped}\n\n${posLines}\n`;
+
+  await saveAs(content, 'text/plain', filenameFor(model, 'tm'), [
+    { description: 'Tegne threat model files', accept: { 'text/plain': ['.tm'] } },
+  ]);
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function filenameFor(model: SDModel | IDModel | IFFModel, ext: string): string {
+function filenameFor(model: SDModel | IDModel | IFFModel | TMModel, ext: string): string {
   const name = model.meta.name;
   if (name) {
     return `${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}.${ext}`;

@@ -229,6 +229,20 @@ function drawElements(
         addLabel(g, el, theme, 0, Q_H / 2 + 16);
         break;
     }
+
+    if (model.meta.showIds) {
+      const badgeY = el.kind === 'system'   ? SYS_H / 2 + 30
+                   : el.kind === 'database' ? DB_BODY_H / 2 + DB_RY + 30
+                   :                          Q_H / 2 + 30;
+      g.append('text')
+        .attr('x', 0).attr('y', badgeY)
+        .attr('text-anchor', 'middle')
+        .attr('fill', theme.labelBelow)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', '9px')
+        .attr('font-style', 'italic')
+        .text(`[${el.id}]`);
+    }
   }
 }
 
