@@ -1,5 +1,21 @@
 import type { Platform, IFFRole } from './types';
 
+export type StrideCategory = 'S' | 'T' | 'R' | 'I' | 'D' | 'E';
+
+// ── Threat Model theme ────────────────────────────────────────────────────────
+
+export interface TMTheme {
+  canvasBg:       string;
+  boundaryFill:   string;
+  boundaryStroke: string;
+  connStroke:     string;
+  refFill:        string;
+  refStroke:      string;
+  refLabelText:   string;
+  stride:         Record<StrideCategory, string>;
+  metaBox:        { fill: string; stroke: string; text: string };
+}
+
 export interface Theme {
   canvasBg:  string;
   pageGuide: string;
@@ -18,6 +34,7 @@ export interface Theme {
   metaBox:   { fill: string; stroke: string; text: string };
   id:        IDTheme;
   iff:       IFFTheme;
+  tm:        TMTheme;
 }
 
 // ── Information Flow Diagram theme ───────────────────────────────────────────
@@ -110,6 +127,17 @@ const dark: Theme = {
     metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
     group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#ffffff' },
   },
+  tm: {
+    canvasBg:       '#181825',
+    boundaryFill:   '#1e1e2e',
+    boundaryStroke: '#44446a',
+    connStroke:     '#6c7086',
+    refFill:        '#2a2a3a',
+    refStroke:      '#555577',
+    refLabelText:   '#cdd6f4',
+    stride: { S: '#cc3333', T: '#e06c00', R: '#d4a017', I: '#7c3aed', D: '#0077cc', E: '#2a7a2a' },
+    metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
+  },
 };
 
 // ── light ─────────────────────────────────────────────────────────────────────
@@ -165,6 +193,17 @@ const light: Theme = {
     },
     metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
     group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#111111' },
+  },
+  tm: {
+    canvasBg:       '#f5f5f0',
+    boundaryFill:   '#e8e8f5',
+    boundaryStroke: '#9999bb',
+    connStroke:     '#8c8fa1',
+    refFill:        '#e0e0ee',
+    refStroke:      '#6666aa',
+    refLabelText:   '#111111',
+    stride: { S: '#cc0000', T: '#e06c00', R: '#b8860b', I: '#6d28d9', D: '#0063b1', E: '#1a6b1a' },
+    metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
   },
 };
 
@@ -223,6 +262,17 @@ const tokyo: Theme = {
     },
     metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
     group:   { fill: '#181830', stroke: '#414868', label: '#ffffff' },
+  },
+  tm: {
+    canvasBg:       '#0d0d14',
+    boundaryFill:   '#181830',
+    boundaryStroke: '#9580ff',
+    connStroke:     '#7c6f9f',
+    refFill:        '#1a1a2e',
+    refStroke:      '#9580ff',
+    refLabelText:   '#e2e0ff',
+    stride: { S: '#FF1744', T: '#FF6600', R: '#FFD700', I: '#BF00FF', D: '#00BFFF', E: '#00FF7F' },
+    metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
   },
 };
 

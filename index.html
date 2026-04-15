@@ -205,7 +205,7 @@
     <div id="left">
       <div class="toolbar">
         <button id="btn-open">Open</button>
-        <input type="file" id="file-input" accept=".sd,.id,.iff" />
+        <input type="file" id="file-input" accept=".sd,.id,.iff,.tm" />
         <button id="btn-save">Save</button>
         <button id="btn-render">Render</button>
       </div>
@@ -251,13 +251,13 @@ database  &lt;id&gt;  [aws|azure|gcp|oracle|on-prem]  [new|changing|decommission
 queue     &lt;id&gt;  [aws|azure|gcp|oracle|on-prem]  [new|changing|decommissioned]
 
 # Label placement override (default: system=inside, database/queue=below)
-system    &lt;id&gt;  [platform]  [label:below]
-database  &lt;id&gt;  [platform]  [label:inside]
+system    &lt;id&gt;  [platform]  [placement:below]
+database  &lt;id&gt;  [platform]  [placement:inside]
 
 connect  &lt;from&gt;  -&gt;   &lt;to&gt;  : &lt;protocol&gt;    # unidirectional
 connect  &lt;from&gt;  &lt;-&gt;  &lt;to&gt;  : &lt;protocol&gt;    # bidirectional
 
-group &lt;id&gt; &lt;label&gt; [label:upper-left|upper-right|lower-left|lower-right]
+group &lt;id&gt; &lt;label&gt; [corner:upper-left|upper-right|lower-left|lower-right]
   system/database/queue declarations...
 end</pre>
       </div>
@@ -281,9 +281,52 @@ store &lt;id&gt;  [master|replica|derived|aggregate|golden|reference|consumer]
 # Relationships: replicate publish ingest derive aggregate enrich merge serve
 link  &lt;from&gt;  -&gt;  &lt;to&gt;  : &lt;relationship&gt;  [transport]
 
-group &lt;id&gt; &lt;label&gt; [label:upper-left|upper-right|lower-left|lower-right]
+group &lt;id&gt; &lt;label&gt; [corner:upper-left|upper-right|lower-left|lower-right]
   store declarations...
 end</pre>
+      </div>
+
+      <hr class="help-divider" />
+
+      <div class="help-section">
+        <h2>Threat Model &nbsp;·&nbsp; @type tm</h2>
+        <p>Models threats against a system using the STRIDE framework. Refs are ghost representations of elements declared in other diagrams. Threats are annotated with STRIDE category badges; mitigations are listed in a panel.</p>
+        <pre>@type     tm
+@name     My Threat Model
+@version  1.0
+@author   Team
+@theme    dark | light | tokyo
+@size     a4 | a3 | a2 | a1 | a0
+@show-ids on | off               # show element id badges
+
+# Reference elements from other diagram files
+@ref  integration_example.id
+@ref  customer_information.iff
+
+# Trust boundaries
+boundary &lt;id&gt; [label:"Boundary Label"]
+  ref &lt;element-id&gt;   # id from a referenced diagram
+  ref &lt;element-id&gt;
+end
+
+# Refs outside a boundary
+ref &lt;element-id&gt;
+
+# Data flows between refs
+flow &lt;id&gt; &lt;from&gt; -&gt; &lt;to&gt; [label:"description"]
+
+# STRIDE threats — S T R I D E
+threat &lt;id&gt; [stride:S|T|R|I|D|E] &lt;targetId&gt; : "description"
+
+# Mitigations
+mitigate &lt;threatId&gt; : "description"</pre>
+      </div>
+
+      <hr class="help-divider" />
+
+      <div class="help-section">
+        <h2>Common directives</h2>
+        <pre>@show-ids  on | off    # overlay [id] badge on each element (all diagram types)</pre>
       </div>
 
     </div>

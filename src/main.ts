@@ -7,8 +7,11 @@ import { idLayout } from './id/layout';
 import { idRender, attachIdDrag, attachGroupDrag, attachLegendBoxDrag } from './id/renderer';
 import { iffLayout } from './iff/layout';
 import { iffRender, attachIffDrag, attachIffGroupDrag, attachIffLegendBoxDrag } from './iff/renderer';
-import { exportSVG, saveSD, saveID, saveIFF } from './export';
-import type { SDModel, IDModel, IFFModel } from './types';
+import { tmLayout } from './tm/layout';
+import { tmRender, attachTmDrag, attachTmMetaBoxDrag } from './tm/renderer';
+import { emptyRegistry } from './project/registry';
+import { exportSVG, saveSD, saveID, saveIFF, saveTM } from './export';
+import type { SDModel, IDModel, IFFModel, TMModel } from './types';
 
 const LS_KEY = 'tegne-dsl';
 
@@ -29,7 +32,7 @@ const canvasContainer = document.getElementById('canvas-container') as HTMLDivEl
 const svgEl           = document.getElementById('canvas')           as unknown as SVGSVGElement;
 const svg             = d3.select(svgEl);
 
-let currentModel: SDModel | IDModel | IFFModel | null = null;
+let currentModel: SDModel | IDModel | IFFModel | TMModel | null = null;
 
 // ── Zoom & pan ────────────────────────────────────────────────────────────────
 const ZOOM_STEP = 1.10;
@@ -57,7 +60,7 @@ function resetView(): void {
 }
 
 // ── Position sync ─────────────────────────────────────────────────────────────
-function updateEditorPositions(model: SDModel | IDModel | IFFModel): void {
+function updateEditorPositions(model: SDModel | IDModel | IFFModel | TMModel): void {
   const stripped = editor.value
     .split('\n')
     .filter(l => !l.trim().startsWith('@position'))
@@ -73,6 +76,10 @@ function updateEditorPositions(model: SDModel | IDModel | IFFModel): void {
     posLines = (model as IFFModel).stores
       .map(s => `@position ${s.id} ${Math.round(s.x)} ${Math.round(s.y)}`)
       .join('\n');
+  } else if (model.meta.diagramType === 'tm') {
+    posLines = (model as TMModel).refs
+      .map(r => `@position ${r.id} ${Math.round(r.x)} ${Math.round(r.y)}`)
+      .join('\n');
   } else {
     const sdModel = model as SDModel;
     posLines = [...sdModel.stocks, ...sdModel.clouds, ...sdModel.auxiliaries]
@@ -87,6 +94,13 @@ function updateEditorPositions(model: SDModel | IDModel | IFFModel): void {
   const legendPos = model.savedPositions['__legend__'];
   if (legendPos) {
     posLines += `\n@position __legend__ ${Math.round(legendPos.x)} ${Math.round(legendPos.y)}`;
+  }
+  if (model.meta.diagramType === 'tm') {
+    const tmModel = model as TMModel;
+    const mitPos = tmModel.savedPositions['__mitigations__'];
+    if (mitPos) posLines += `\n@position __mitigations__ ${Math.round(mitPos.x)} ${Math.round(mitPos.y)}`;
+    const strideKeyPos = tmModel.savedPositions['__stride_key__'];
+    if (strideKeyPos) posLines += `\n@position __stride_key__ ${Math.round(strideKeyPos.x)} ${Math.round(strideKeyPos.y)}`;
   }
 
   editor.value = `${stripped}\n\n${posLines}\n`;
@@ -130,6 +144,12 @@ function runRender(): void {
     attachIffGroupDrag(svg, iffModel, () => updateEditorPositions(iffModel));
     attachIffLegendBoxDrag(svg, iffModel, () => updateEditorPositions(iffModel));
     attachMetaBoxDrag(svg, iffModel, () => updateEditorPositions(iffModel));
+  } else if (model.meta.diagramType === 'tm') {
+    const tmModel = model as TMModel;
+    tmLayout(tmModel);
+    tmRender(svg, tmModel, emptyRegistry());
+    attachTmDrag(svg, tmModel, () => updateEditorPositions(tmModel));
+    attachTmMetaBoxDrag(svg, tmModel, () => updateEditorPositions(tmModel));
   } else {
     const sdModel = model as SDModel;
     layout(sdModel);
@@ -168,6 +188,8 @@ btnSave.addEventListener('click', () => {
     void saveID(editor.value, currentModel as IDModel);
   } else if (currentModel.meta.diagramType === 'infoflow') {
     void saveIFF(editor.value, currentModel as IFFModel);
+  } else if (currentModel.meta.diagramType === 'tm') {
+    void saveTM(editor.value, currentModel as TMModel);
   } else {
     void saveSD(editor.value, currentModel as SDModel);
   }

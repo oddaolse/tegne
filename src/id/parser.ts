@@ -84,6 +84,16 @@ export function parseID(lines: string[]): ParseResult {
           break;
         }
 
+        case '@show-ids': {
+          const v = value.toLowerCase();
+          if (v !== 'on' && v !== 'off') {
+            errors.push({ line: lineNum, message: `@show-ids must be on or off, got: "${value}"` });
+          } else {
+            meta.showIds = v === 'on';
+          }
+          break;
+        }
+
         case '@position': {
           const parts = value.split(/\s+/);
           if (parts.length !== 3) {

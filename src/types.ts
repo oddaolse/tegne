@@ -1,6 +1,6 @@
 // ── Shared types ──────────────────────────────────────────────────────────────
 
-export type DiagramType = 'sd' | 'id' | 'infoflow';
+export type DiagramType = 'sd' | 'id' | 'infoflow' | 'tm';
 
 export interface ModelMeta {
   diagramType?:  DiagramType;
@@ -12,6 +12,7 @@ export interface ModelMeta {
   orientation?:  'landscape' | 'portrait';
   size?:         'a4' | 'a3' | 'a2' | 'a1' | 'a0';
   legend?:       boolean;   // show legend box (default: true)
+  showIds?:      boolean;   // overlay element id badges (default: false)
 }
 
 export interface Position { x: number; y: number; }
@@ -25,9 +26,10 @@ export interface ParseError {
 import type { SDModel }   from './sd/types';
 import type { IDModel }   from './id/types';
 import type { IFFModel }  from './iff/types';
+import type { TMModel }   from './tm/types';
 
 export interface ParseResult {
-  model:  SDModel | IDModel | IFFModel | null;
+  model:  SDModel | IDModel | IFFModel | TMModel | null;
   errors: ParseError[];
 }
 
@@ -50,3 +52,8 @@ export type {
   IFFStore, IFFLink, IFFGroup,
   IFFModel,
 } from './iff/types';
+
+export type {
+  TMRef, TMBoundary, TMFlow, TMThreat, TMMitigation,
+  TMModel,
+} from './tm/types';

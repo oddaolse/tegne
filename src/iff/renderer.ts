@@ -166,6 +166,17 @@ function drawStores(
       .attr('font-size', '10px')
       .attr('font-style', 'italic')
       .text(store.role);
+
+    if (model.meta.showIds) {
+      g.append('text')
+        .attr('x', 0).attr('y', STORE_H / 2 + 28)
+        .attr('text-anchor', 'middle')
+        .attr('fill', theme.metaBox.text)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', '9px')
+        .attr('font-style', 'italic')
+        .text(`[${store.id}]`);
+    }
   }
 }
 

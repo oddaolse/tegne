@@ -314,6 +314,17 @@ function drawStocks(
     .attr('font-family', 'Courier New, Courier, monospace')
     .attr('font-size', '12px')
     .text(d => d.label);
+
+  if (model.meta.showIds) {
+    groups.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('y', STOCK_H / 2 + 14)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '9px')
+      .attr('font-style', 'italic')
+      .text(d => `[${d.id}]`);
+  }
 }
 
 function drawClouds(
@@ -341,6 +352,17 @@ function drawClouds(
     .attr('font-family', 'Courier New, Courier, monospace')
     .attr('font-size', '10px')
     .text(d => d.label);
+
+  if (model.meta.showIds) {
+    groups.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('y', CLOUD_RY + 14)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '9px')
+      .attr('font-style', 'italic')
+      .text(d => `[${d.id}]`);
+  }
 }
 
 function drawAuxiliaries(
@@ -368,6 +390,17 @@ function drawAuxiliaries(
     .attr('font-family', 'Courier New, Courier, monospace')
     .attr('font-size', '10px')
     .text(d => d.label);
+
+  if (model.meta.showIds) {
+    groups.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('y', AUX_R + 12)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '9px')
+      .attr('font-style', 'italic')
+      .text(d => `[${d.id}]`);
+  }
 }
 
 // ── Metadata box ──────────────────────────────────────────────────────────────
