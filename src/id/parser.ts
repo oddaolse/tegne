@@ -1,6 +1,6 @@
 import type {
   IDModel, IDElement, IDConnection, IDGroup,
-  Platform, IDState, Direction, LabelPos, LabelCorner,
+  Platform, IDState, Direction, PlacementPos, LabelCorner,
 } from './types';
 import type { ModelMeta, Position, ParseError, ParseResult } from '../types';
 import { THEMES } from '../themes';
@@ -12,7 +12,7 @@ function todayISO(): string {
 const VALID_PLATFORMS: readonly Platform[] = ['aws', 'azure', 'on-prem', 'gcp', 'oracle'];
 const VALID_STATES:    readonly IDState[]  = ['new', 'changing', 'decommissioned'];
 
-function defaultLabelPos(kind: IDElement['kind']): LabelPos {
+function defaultPlacement(kind: IDElement['kind']): PlacementPos {
   return kind === 'system' ? 'inside' : 'below';
 }
 
@@ -127,22 +127,26 @@ export function parseID(lines: string[]): ParseResult {
           break;
         }
 
-        // Extract all [...] tokens
-        const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim().toLowerCase());
+        // Extract all [...] tokens — preserve case for label: value
+        const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
 
-        let platform: Platform | undefined;
-        let state:    IDState  = 'current';
-        let labelPos: LabelPos = defaultLabelPos(kind);
+        let platform:  Platform     | undefined;
+        let state:     IDState      = 'current';
+        let placement: PlacementPos = defaultPlacement(kind);
+        let label:     string       = id;
 
         for (const b of brackets) {
-          if ((VALID_PLATFORMS as readonly string[]).includes(b)) {
-            platform = b as Platform;
-          } else if ((VALID_STATES as readonly string[]).includes(b)) {
-            state = b as IDState;
-          } else if (b === 'label:inside') {
-            labelPos = 'inside';
-          } else if (b === 'label:below') {
-            labelPos = 'below';
+          const bLower = b.toLowerCase();
+          if ((VALID_PLATFORMS as readonly string[]).includes(bLower)) {
+            platform = bLower as Platform;
+          } else if ((VALID_STATES as readonly string[]).includes(bLower)) {
+            state = bLower as IDState;
+          } else if (b.startsWith('label:')) {
+            label = b.slice(6).replace(/^["']|["']$/g, '').trim();
+          } else if (bLower === 'placement:inside') {
+            placement = 'inside';
+          } else if (bLower === 'placement:below') {
+            placement = 'below';
           } else {
             errors.push({ line: lineNum, message: `Unknown qualifier: [${b}]. Valid platforms: ${VALID_PLATFORMS.join(', ')}` });
           }
@@ -153,7 +157,7 @@ export function parseID(lines: string[]): ParseResult {
           break;
         }
 
-        elements.push({ kind, id, label: id, platform, state, labelPos, x: 0, y: 0 });
+        elements.push({ kind, id, label, platform, state, placement, x: 0, y: 0 });
         if (currentGroup) currentGroup.members.push(id);
         break;
       }
@@ -220,11 +224,11 @@ export function parseID(lines: string[]): ParseResult {
         let labelCorner: LabelCorner = 'upper-right';
         const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim().toLowerCase());
         for (const b of brackets) {
-          if      (b === 'label:upper-left')  labelCorner = 'upper-left';
-          else if (b === 'label:upper-right') labelCorner = 'upper-right';
-          else if (b === 'label:lower-left')  labelCorner = 'lower-left';
-          else if (b === 'label:lower-right') labelCorner = 'lower-right';
-          else errors.push({ line: lineNum, message: `Unknown group qualifier: [${b}]. Valid: [label:upper-left], [label:upper-right], [label:lower-left], [label:lower-right]` });
+          if      (b === 'corner:upper-left')  labelCorner = 'upper-left';
+          else if (b === 'corner:upper-right') labelCorner = 'upper-right';
+          else if (b === 'corner:lower-left')  labelCorner = 'lower-left';
+          else if (b === 'corner:lower-right') labelCorner = 'lower-right';
+          else errors.push({ line: lineNum, message: `Unknown group qualifier: [${b}]. Valid: [corner:upper-left], [corner:upper-right], [corner:lower-left], [corner:lower-right]` });
         }
 
         currentGroup = { kind: 'group', id: groupId, label: rawLabel || groupId, members: [], labelCorner };

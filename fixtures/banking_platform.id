@@ -7,13 +7,13 @@
 @size     a3
 
 # Customer-facing applications
-group customer_channels Customer Channels [label:upper-left]
+group customer_channels Customer Channels [corner:upper-left]
 system    WebPortal         [aws]
 system    MobileApp         [azure]       [new]
 end
 
 # Core backend services
-group core_banking Core Banking [label:upper-right]
+group core_banking Core Banking [corner:upper-right]
 system    AccountSvc        [aws]
 system    PaymentSvc        [azure]
 system    LoanSvc           [aws]         [changing]
@@ -21,14 +21,14 @@ system    LegacyCore        [on-prem]     [decommissioned]
 end
 
 # Persistence layer
-group data_layer Data Layer [label:lower-right]
+group data_layer Data Layer [corner:lower-right]
 database  AccountDB         [oracle]
 database  TransactionDB     [aws]
 database  AnalyticsDB       [gcp]         [new]
 end
 
 # Event streaming
-group messaging Event Bus [label:lower-left]
+group messaging Event Bus [corner:lower-left]
 queue     PaymentQueue      [aws]
 queue     NotificationQueue [azure]
 end

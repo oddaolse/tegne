@@ -176,7 +176,7 @@ function addLabel(
   insideY: number,
   belowY: number,
 ): void {
-  if (el.labelPos === 'inside') {
+  if (el.placement === 'inside') {
     g.append('text')
       .attr('x', 0).attr('y', insideY)
       .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')

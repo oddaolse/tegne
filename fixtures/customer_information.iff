@@ -7,14 +7,14 @@
 @theme    dark
 
 # Customer Domain group
-group customer_domain Customer Domain [label:upper-left]
+group customer_domain Customer Domain [corner:upper-left]
 store cis         [master]    [label:"Customer Information System"]
 store cdp         [reference] [label:"Case Management"]
 store loyalty_db  [replica]   [label:"Loyalty DB"]
 end
 
 # Analytics group
-group analytics Analytics [label:upper-right]
+group analytics Analytics [corner:upper-right]
 store analytics_dw [aggregate] [label:"Analytics Warehouse"]
 store segment_db   [derived]   [label:"Segment Store"]
 end

@@ -73,20 +73,30 @@ queue C [aws]`;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
-    expect(id.elements[0].labelPos).toBe('inside');
-    expect(id.elements[1].labelPos).toBe('below');
-    expect(id.elements[2].labelPos).toBe('below');
+    expect(id.elements[0].placement).toBe('inside');
+    expect(id.elements[1].placement).toBe('below');
+    expect(id.elements[2].placement).toBe('below');
   });
 
-  it('respects [label:inside] and [label:below] overrides', () => {
+  it('respects [placement:inside] and [placement:below] overrides', () => {
     const dsl = `@type id
-database A [aws] [label:inside]
-system B [azure] [label:below]`;
+database A [aws] [placement:inside]
+system B [azure] [placement:below]`;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
-    expect(id.elements[0].labelPos).toBe('inside');
-    expect(id.elements[1].labelPos).toBe('below');
+    expect(id.elements[0].placement).toBe('inside');
+    expect(id.elements[1].placement).toBe('below');
+  });
+
+  it('supports [label:"text"] for display name separate from id', () => {
+    const dsl = `@type id
+system MobileApp [azure] [label:"Mobile Application"]`;
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    const id = model as IDModel;
+    expect(id.elements[0].id).toBe('MobileApp');
+    expect(id.elements[0].label).toBe('Mobile Application');
   });
 
   it('parses a unidirectional connect', () => {

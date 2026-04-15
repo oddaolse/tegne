@@ -40,7 +40,7 @@ export type {
 } from './sd/types';
 
 export type {
-  Platform, IDState, Direction, LabelPos, LabelCorner,
+  Platform, IDState, Direction, PlacementPos, LabelCorner,
   IDElement, IDConnection, IDGroup,
   IDModel,
 } from './id/types';

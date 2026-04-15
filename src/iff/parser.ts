@@ -208,11 +208,11 @@ export function parseIFF(lines: string[]): ParseResult {
         let labelCorner: IFFLabelCorner = 'upper-right';
         const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim().toLowerCase());
         for (const b of brackets) {
-          if      (b === 'label:upper-left')  labelCorner = 'upper-left';
-          else if (b === 'label:upper-right') labelCorner = 'upper-right';
-          else if (b === 'label:lower-left')  labelCorner = 'lower-left';
-          else if (b === 'label:lower-right') labelCorner = 'lower-right';
-          else errors.push({ line: lineNum, message: `Unknown group qualifier: [${b}]` });
+          if      (b === 'corner:upper-left')  labelCorner = 'upper-left';
+          else if (b === 'corner:upper-right') labelCorner = 'upper-right';
+          else if (b === 'corner:lower-left')  labelCorner = 'lower-left';
+          else if (b === 'corner:lower-right') labelCorner = 'lower-right';
+          else errors.push({ line: lineNum, message: `Unknown group qualifier: [${b}]. Valid: [corner:upper-left], [corner:upper-right], [corner:lower-left], [corner:lower-right]` });
         }
 
         currentGroup = { kind: 'group', id: groupId, label: rawLabel || groupId, members: [], labelCorner };

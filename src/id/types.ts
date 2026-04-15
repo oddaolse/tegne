@@ -5,16 +5,16 @@ export type { Position } from '../types';  // re-export for convenience within i
 export type Platform    = 'aws' | 'azure' | 'on-prem' | 'gcp' | 'oracle';
 export type IDState     = 'current' | 'new' | 'changing' | 'decommissioned';
 export type Direction   = 'unidirectional' | 'bidirectional';
-export type LabelPos    = 'inside' | 'below';
-export type LabelCorner = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
+export type PlacementPos = 'inside' | 'below';
+export type LabelCorner  = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
 
 export interface IDElement extends Position {
-  kind:     'system' | 'database' | 'queue';
-  id:       string;
-  label:    string;
-  platform: Platform;
-  state:    IDState;
-  labelPos: LabelPos;
+  kind:      'system' | 'database' | 'queue';
+  id:        string;
+  label:     string;
+  platform:  Platform;
+  state:     IDState;
+  placement: PlacementPos;
 }
 
 export interface IDConnection {
