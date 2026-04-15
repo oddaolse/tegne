@@ -24,6 +24,7 @@ Tegne supports multiple diagram types, selected via `@type` at the top of the DS
 | `sd` | Forrester Stock-and-Flow (System Dynamics) | Implemented |
 | `id` | Integration Diagram (IT Architecture) | Implemented |
 | `infoflow` | Information Flow Diagram (Data Landscape) | Implemented |
+| `tm` | Threat Model (STRIDE) | Implemented |
 | *(absent)* | Defaults to `sd` | — |
 
 **What to build:** see [`requirements.md`](requirements.md)
@@ -61,8 +62,8 @@ tegne/
 │   ├── main.ts         # Entry point — wires editor, routes by @type
 │   ├── types.ts        # Shared types + re-exports from sub-modules
 │   ├── parser.ts       # DSL entry point — pre-scans @type, dispatches
-│   ├── themes.ts       # Colour themes (dark, light, tokyo) — SD + ID + IFF slots
-│   ├── export.ts       # SVG export, .sd save, .id save, .iff save
+│   ├── themes.ts       # Colour themes (dark, light, tokyo) — SD + ID + IFF + TM slots
+│   ├── export.ts       # SVG export, .sd save, .id save, .iff save, .tm save
 │   ├── env.d.ts        # Type declarations for File System Access API
 │   ├── sd/             # Forrester Stock-and-Flow
 │   │   ├── types.ts
@@ -76,17 +77,28 @@ tegne/
 │   │   ├── layout.ts
 │   │   ├── renderer.ts
 │   │   └── shapes.ts
-│   └── iff/            # Information Flow Diagram
+│   ├── iff/            # Information Flow Diagram
+│   │   ├── types.ts
+│   │   ├── parser.ts
+│   │   ├── layout.ts
+│   │   ├── renderer.ts
+│   │   └── shapes.ts
+│   ├── tm/             # Threat Model
+│   │   ├── types.ts
+│   │   ├── parser.ts
+│   │   ├── layout.ts
+│   │   └── renderer.ts
+│   └── project/        # Cross-diagram registry and project loader
 │       ├── types.ts
-│       ├── parser.ts
-│       ├── layout.ts
-│       ├── renderer.ts
-│       └── shapes.ts
+│       ├── manifest-parser.ts
+│       ├── registry.ts
+│       └── loader.ts
 └── fixtures/
     ├── population.sd              # SD: simple model — all five element types
     ├── factory_dynamics.sd        # SD: Forrester production-distribution chain
     ├── integration_example.id     # ID: e-commerce platform — all element types and states
-    └── customer_information.iff   # IFF: customer data landscape — all 7 roles, 2 groups
+    ├── customer_information.iff   # IFF: customer data landscape — all 7 roles, 2 groups
+    └── threat_model_example.tm    # TM: e-commerce threat model — all STRIDE categories
 ```
 
 ---
@@ -171,13 +183,13 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Element types: `system`, `database`, `queue`
 - [x] Platform colours: `[aws]`, `[azure]`, `[on-prem]`, `[gcp]`, `[oracle]`
 - [x] Element states: default (current), `[new]`, `[changing]`, `[decommissioned]`
-- [x] Label placement: inside for `system`, below for `database` and `queue`; override with `[label:inside]` / `[label:below]`
+- [x] Label placement: inside for `system`, below for `database` and `queue`; override with `[placement:inside]` / `[placement:below]`
 - [x] Connections: `connect A -> B : protocol`, `connect A <-> B : protocol`
 - [x] Arrow styles: closed arrowhead for all connections; open arrowhead when either endpoint is a `queue`
 - [x] Full theme support — all three themes; tokyo renders neon with SVG glow filter
 - [x] `@theme` directive supported in ID diagrams
 - [x] Drag support — elements draggable; connections redraw on move
-- [x] Groupings — `group <id> <label> [label:corner]` / `end` blocks; named boundary rect; draggable as a unit
+- [x] Groupings — `group <id> <label> [corner:*]` / `end` blocks; named boundary rect; draggable as a unit
 - [x] `changing` state — dashed border + 50% fill-opacity (platform colour unchanged, rendered semi-transparent)
 - [x] Legend box — upper-right canvas annotation; shows only platform/state combinations in use; draggable; position persisted as `@position __legend__`
 
@@ -190,12 +202,32 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Label override: `[label:"Human Readable Name"]`
 - [x] Full theme support — dark, light, tokyo (neon + glow)
 - [x] Drag support — stores draggable; links redraw on move
-- [x] Groupings — `group <id> <label> [label:corner]` / `end` blocks; draggable as a unit
+- [x] Groupings — `group <id> <label> [corner:*]` / `end` blocks; draggable as a unit
 - [x] Save as `.iff` file with `@position` directives
 - [x] Fixture: `fixtures/customer_information.iff`
 
+### Threat Model (`@type tm`)
+- [x] `@ref <filename>` — declares referenced diagram files
+- [x] `boundary <id> [label:"..."]` / `end` — trust boundary blocks
+- [x] `ref <id>` — ghost element inside or outside a boundary
+- [x] `flow <id> <from> -> <to> [label:"..."]` — directed data flow between refs
+- [x] `threat <id> [stride:S|T|R|I|D|E] <targetId> : "desc"` — STRIDE threat annotation
+- [x] `mitigate <threatId> : "desc"` — mitigation for a declared threat
+- [x] Ghost ref rendering — dashed border, reduced opacity, source-type badge from registry
+- [x] STRIDE badge rendering — coloured circles on target; mitigated threats at 35% opacity
+- [x] STRIDE key box — draggable legend showing used categories; persisted as `@position __stride_key__`
+- [x] Mitigations panel — draggable box listing all mitigations; persisted as `@position __mitigations__`
+- [x] Full theme support — dark, light, tokyo
+- [x] Drag support — refs draggable; flows and boundaries update on move
+- [x] Save as `.tm` file with `@position` directives
+- [x] Fixture: `fixtures/threat_model_example.tm`
+
+### Cross-diagram features
+- [x] `@show-ids on|off` — optional [id] badge overlay on every element (all diagram types)
+- [x] `src/project/` — cross-diagram ID registry (`buildRegistry`, `emptyRegistry`), project manifest parser, directory loader
+
 ### UI
-- [x] Help panel — floating, draggable, non-blocking; toggled by Help button after Export SVG; shows DSL syntax for `id` and `infoflow` diagram types
+- [x] Help panel — floating, draggable, non-blocking; shows DSL syntax for `id`, `infoflow`, `tm` diagram types, and `@show-ids`
 
 ---
 

@@ -22,7 +22,7 @@ These directives are recognised in all diagram types.
 Optional lines, conventionally at the top. All fields are optional except `date`, which defaults to today.
 
 ```
-@type         sd|id|infoflow       ← diagram type; default: sd
+@type         sd|id|infoflow|tm   ← diagram type; default: sd
 @name         <model name>
 @version      <version string>
 @date         <date string>
@@ -30,6 +30,7 @@ Optional lines, conventionally at the top. All fields are optional except `date`
 @theme        <theme name>        ← colour theme: dark (default) | light | tokyo
 @orientation  landscape|portrait  ← page orientation; default: landscape
 @size         a4|a3|a2|a1|a0     ← paper size; default: a4
+@show-ids     on|off              ← overlay [id] badge on each element; default: off
 ```
 
 Unknown `@type` values produce a `ParseError`.
@@ -49,6 +50,10 @@ Written automatically by the **Save** action. Do not edit manually.
   `@position __meta__ <x> <y>`
 - The reserved key `__legend__` stores the position of the legend box (ID diagrams only):
   `@position __legend__ <x> <y>`
+- The reserved key `__mitigations__` stores the position of the mitigations panel (TM diagrams only):
+  `@position __mitigations__ <x> <y>`
+- The reserved key `__stride_key__` stores the position of the STRIDE key box (TM diagrams only):
+  `@position __stride_key__ <x> <y>`
 
 ---
 
@@ -88,7 +93,7 @@ Two-column layout:
 
 ### Opening Files
 
-- **Open** button triggers a hidden `<input type="file" accept=".sd,.id,.iff">`
+- **Open** button triggers a hidden `<input type="file" accept=".sd,.id,.iff,.tm">`
 - On file select: replace textarea content, then automatically render
 
 ### Saving Files
@@ -147,6 +152,7 @@ The `@type` directive selects the diagram type. Defaults to `sd` if absent.
 | `sd` | Forrester Stock-and-Flow (System Dynamics) | Implemented |
 | `id` | Integration Diagram (IT Architecture) | Implemented |
 | `infoflow` | Information Flow Diagram (Data Landscape) | Implemented |
+| `tm` | Threat Model (STRIDE) | Implemented |
 
 ---
 
@@ -248,7 +254,7 @@ For IT Architects to document how systems integrate — what exists, what will c
 | `database` | Vertical drum (cylinder) | Below           |
 | `queue`    | Horizontal cylinder      | Below           |
 
-Label placement can be overridden with `[label:inside]` or `[label:below]`.
+Label placement can be overridden with `[placement:inside]` or `[placement:below]`.
 
 ### Platform
 
@@ -289,7 +295,7 @@ connect  <from>  <->  <to>  : <protocol>   # bidirectional
 Named boundary rectangles that visually cluster related elements.
 
 ```
-group <id> <label> [label:upper-left|upper-right|lower-left|lower-right]
+group <id> <label> [corner:upper-left|upper-right|lower-left|lower-right]
   system/database/queue declarations...
 end
 ```
@@ -400,7 +406,7 @@ One link per line. The relationship is a single keyword describing the data move
 Same syntax as ID groups. Declares a named boundary rectangle around related stores.
 
 ```
-group <id> <label> [label:upper-left|upper-right|lower-left|lower-right]
+group <id> <label> [corner:upper-left|upper-right|lower-left|lower-right]
   store declarations...
 end
 ```
@@ -435,4 +441,101 @@ link analytics_dw -> segment_db    : derive
 link ext_ref      -> cdp           : enrich
 link cdp          -> mobile_app    : serve
 link segment_db   -> mobile_app    : serve
+```
+
+---
+
+## Threat Model (`@type tm`)
+
+### Purpose
+
+For security engineers and architects to document threats against a system using the STRIDE framework. Refs are ghost representations of elements declared in other diagram files. Threats are annotated as coloured STRIDE badges; mitigations are collected in a panel.
+
+### Cross-diagram references
+
+```
+@ref  <filename>
+```
+
+One or more `@ref` lines declare which diagram files this threat model draws elements from. When loaded as part of a project (via the cross-diagram registry), the renderer resolves each `ref` to its label and element type from the referenced file. When opened standalone, refs render with their id as the label and no type badge.
+
+### Trust Boundaries
+
+```
+boundary <id> [label:"Display Name"]
+  ref <element-id>
+  ...
+end
+```
+
+A trust boundary is a named group drawn as a heavy dashed rounded rectangle. Each `ref` inside declares a ghost element that belongs to this boundary. Refs can also appear outside any boundary.
+
+### Flows
+
+```
+flow <id> <from> -> <to> [label:"description"]
+```
+
+A directed data flow between two refs. Rendered as an arrow. Threats can target flows.
+
+### STRIDE Threats
+
+```
+threat <id> [stride:S|T|R|I|D|E] <targetId> : "description"
+```
+
+- `targetId` must be a declared `ref` id or `flow` id
+- STRIDE categories: **S**poofing, **T**ampering, **R**epudiation, **I**nformation Disclosure, **D**enial of Service, **E**levation of Privilege
+- Rendered as a coloured circle badge on the target; badge letter is the STRIDE category
+- Multiple threats on the same target are offset horizontally
+
+### Mitigations
+
+```
+mitigate <threatId> : "description"
+```
+
+- References a declared threat by id
+- Mitigated threats render their badge at 35% opacity with a dashed stroke
+- All mitigations are listed in a draggable **Mitigations panel** on the canvas
+
+### On-canvas annotations
+
+| Box | Position | Draggable | Persisted |
+|---|---|---|---|
+| Meta box | bottom-right by default | Yes | `@position __meta__` |
+| Mitigations panel | bottom-left by default | Yes | `@position __mitigations__` |
+| STRIDE key | top-right by default | Yes | `@position __stride_key__` |
+
+### DSL Example
+
+```
+@type     tm
+@name     API Platform Threat Model
+@version  1.0
+@author   Security Team
+
+@ref  integration_example.id
+
+boundary internet [label:"Internet"]
+  ref customer_browser
+end
+
+boundary app_tier [label:"Application Tier"]
+  ref order_service
+  ref payment_service
+end
+
+ref external_payment_gateway
+
+flow f1  customer_browser -> order_service        [label:"HTTPS"]
+flow f2  order_service    -> payment_service      [label:"REST"]
+flow f3  payment_service  -> external_payment_gateway [label:"REST/TLS"]
+
+threat T1 [stride:S] f1             : "Session hijack via stolen token"
+threat T2 [stride:T] f2             : "Injection attack on order API"
+threat T3 [stride:I] payment_service : "PAN data in application logs"
+
+mitigate T1 : "Short-lived JWT with audience binding; enforce HTTPS only"
+mitigate T3 : "Mask PAN in all log sinks; use payment tokenisation"
 ```
