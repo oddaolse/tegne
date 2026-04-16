@@ -6,7 +6,7 @@
 @theme    dark
 
 # References to elements declared in other diagrams
-@ref  integration_example.id
+@ref  e-commerce-platform.id
 
 # ── Trust boundaries ──────────────────────────────────────────────────────────
 

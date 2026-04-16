@@ -95,10 +95,11 @@ tegne/
 │       └── loader.ts
 └── fixtures/
     ├── population.sd              # SD: simple model — all five element types
-    ├── factory_dynamics.sd        # SD: Forrester production-distribution chain
-    ├── integration_example.id     # ID: e-commerce platform — all element types and states
+    ├── factory_dynamics.sd        # SD: Forrester production-distribution chain (bullwhip effect)
+    ├── integration_example.id     # ID: minimal — no metadata overrides, all defaults
+    ├── e-commerce-platform.id     # ID: full — all metadata, platforms, states, groups, placement overrides
     ├── customer_information.iff   # IFF: customer data landscape — all 7 roles, 2 groups
-    └── threat_model_example.tm    # TM: e-commerce threat model — all STRIDE categories
+    └── threat_model_example.tm    # TM: e-commerce threat model — all STRIDE categories; @ref e-commerce-platform.id
 ```
 
 ---

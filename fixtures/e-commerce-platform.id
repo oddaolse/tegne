@@ -1,51 +1,47 @@
-@type     id
-@name     E-Commerce Platform
-@version  1.0
-@author   Jane Smith
-@date     2026-04-10
-@theme    light
+@type        id
+@name        E-Commerce Platform
+@version     2.0
+@author      Platform Team
+@date        2026-04-16
+@theme       dark
+@size        a3
+@orientation landscape
 
-# AWS group
-group aws_group AWS [label:upper-right]
-system    WebApp          [aws]       [changing]
-system    OrderSvc        [aws]
-system    NewReporting    [aws]       [new]
+group frontend Frontend [label:upper-left]
+system   web_app              [aws]       [changing]
+system   mobile_app           [azure]     [new]
 end
 
-# Azure group
-group azure_group Azure [label:upper-right]
-system    PaymentSvc      [azure]
-system    BillingSvc      [azure]     [changing]
+group backend Backend Services [label:upper-right]
+system   order_service        [aws]
+system   payment_service      [azure]
+system   notification_service [gcp]       [new]
 end
 
-# Ungrouped systems
-system    LegacyAuth      [on-prem]   [decommissioned]
+group data Data Layer [label:lower-right]
+database order_db             [oracle]
+database payment_db           [on-prem]   [placement:inside]
+database analytics_db         [gcp]       [new]
+end
 
-# Data stores
-database  CustomerDB      [on-prem]
-database  OrderDB         [oracle]
+group messaging Messaging [label:lower-left]
+queue    message_queue        [aws]
+queue    notification_queue   [azure]
+end
 
-# Message queues
-queue     OrderQueue      [gcp]
+system   legacy_auth          [on-prem]   [decommissioned]
+system   fraud_detect         [gcp]       [placement:below]
 
-# Connections
-connect   WebApp          ->    OrderSvc        : REST
-connect   WebApp          ->    CustomerDB      : JDBC
-connect   OrderSvc        ->    OrderQueue      : SQS
-connect   OrderQueue      ->    PaymentSvc      : SQS
-connect   OrderSvc       <->    PaymentSvc      : REST
-connect   OrderSvc        ->    OrderDB         : JDBC
-connect   OrderSvc        ->    NewReporting    : REST
-connect   BillingSvc      ->    PaymentSvc      : REST
-connect   LegacyAuth      ->    WebApp          : SOAP
-
-@position WebApp 188 297
-@position OrderSvc 408 297
-@position NewReporting 628 297
-@position PaymentSvc 434 502
-@position BillingSvc 188 501
-@position LegacyAuth 402 122
-@position CustomerDB 145 116
-@position OrderDB 675 129
-@position OrderQueue 834 499
-@position __meta__ 52 820
+connect  web_app             ->   order_service        : REST
+connect  mobile_app          ->   order_service        : REST
+connect  order_service      <->   payment_service      : REST
+connect  order_service       ->   message_queue        : SQS
+connect  message_queue       ->   payment_service      : SQS
+connect  payment_service     ->   notification_service : gRPC
+connect  notification_service ->  notification_queue   : SQS
+connect  notification_queue  ->   mobile_app           : WebSocket
+connect  order_service       ->   order_db             : JDBC
+connect  payment_service     ->   payment_db           : JDBC
+connect  order_service       ->   analytics_db         : ETL
+connect  legacy_auth         ->   web_app              : SOAP
+connect  fraud_detect        ->   payment_service      : REST

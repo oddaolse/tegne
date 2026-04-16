@@ -1,40 +1,12 @@
-@type     id
-@name     E-Commerce Platform
-@version  1.0
-@author   Jane Smith
-@date     2026-04-10
-@theme    light
+@type id
 
-# AWS group
-group aws_group AWS [corner:upper-right]
-system    WebApp          [aws]
-system    OrderSvc        [aws]
-system    NewReporting    [aws]       [new]
-end
+system   WebApp      [aws]
+system   ApiSvc      [azure]
+system   AuthSvc     [gcp]
+database CustomerDB  [on-prem]
+queue    EventQueue  [aws]
 
-# Azure group
-group azure_group Azure [corner:upper-right]
-system    PaymentSvc      [azure]
-system    BillingSvc      [azure]     [changing]
-end
-
-# Ungrouped systems
-system    LegacyAuth      [on-prem]   [decommissioned]
-
-# Data stores
-database  CustomerDB      [on-prem]
-database  OrderDB         [oracle]
-
-# Message queues
-queue     OrderQueue      [gcp]
-
-# Connections
-connect   WebApp          ->    OrderSvc        : REST
-connect   WebApp          ->    CustomerDB      : JDBC
-connect   OrderSvc        ->    OrderQueue      : SQS
-connect   OrderQueue      ->    PaymentSvc      : SQS
-connect   OrderSvc       <->    PaymentSvc      : REST
-connect   OrderSvc        ->    OrderDB         : JDBC
-connect   OrderSvc        ->    NewReporting    : REST
-connect   BillingSvc      ->    PaymentSvc      : REST
-connect   LegacyAuth      ->    WebApp          : SOAP
+connect  WebApp    ->   ApiSvc     : REST
+connect  WebApp    ->   AuthSvc    : REST
+connect  ApiSvc    ->   CustomerDB : JDBC
+connect  ApiSvc    ->   EventQueue : SQS
