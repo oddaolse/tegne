@@ -2,7 +2,7 @@ import * as d3 from 'd3';
 import { parse } from './parser';
 import { layout } from './sd/layout';
 import { render, pageRect, attachMetaBoxDrag, attachSDLegendBoxDrag } from './sd/renderer';
-import { attachDrag } from './sd/drag';
+import { attachDrag, attachGroupDrag as attachSDGroupDrag } from './sd/drag';
 import { idLayout } from './id/layout';
 import { idRender, attachIdDrag, attachGroupDrag, attachLegendBoxDrag } from './id/renderer';
 import { iffLayout } from './iff/layout';
@@ -155,6 +155,7 @@ function runRender(): void {
     layout(sdModel);
     render(svg, sdModel);
     attachDrag(svg, sdModel, () => updateEditorPositions(sdModel));
+    attachSDGroupDrag(svg, sdModel, () => updateEditorPositions(sdModel));
     attachSDLegendBoxDrag(svg, sdModel, () => updateEditorPositions(sdModel));
     attachMetaBoxDrag(svg, sdModel, () => updateEditorPositions(sdModel));
   }

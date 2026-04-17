@@ -5,6 +5,7 @@ export type { Position } from '../types';  // re-export for convenience within s
 export type Polarity     = '+' | '-';
 export type CloudRole    = 'source' | 'sink';
 export type FlowStrength = 'weak' | 'medium' | 'strong';
+export type SDLabelCorner = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
 
 export interface Stock     extends Position { kind: 'stock'; id: string; label: string; }
 export interface Cloud     extends Position { kind: 'cloud'; id: string; label: string; role: CloudRole; }
@@ -28,6 +29,14 @@ export interface Connector {
   polarity: Polarity;
 }
 
+export interface SDGroup {
+  kind:        'group';
+  id:          string;
+  label:       string;
+  members:     string[];       // stock and aux IDs
+  labelCorner: SDLabelCorner;
+}
+
 export type Node = Stock | Cloud | Auxiliary;
 
 export interface SDModel {
@@ -37,5 +46,6 @@ export interface SDModel {
   auxiliaries:    Auxiliary[];
   flows:          Flow[];
   connectors:     Connector[];
+  groups:         SDGroup[];
   savedPositions: Record<string, Position>;
 }

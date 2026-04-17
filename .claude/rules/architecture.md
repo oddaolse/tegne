@@ -6,7 +6,7 @@ See `CLAUDE.md` for the canonical file tree. Do **not** create files outside tha
 
 ## Parser Rules
 - Line-by-line parser — no grammar library
-- Each line classified by leading keyword: `@name`, `@version`, `@date`, `@author`, `@theme`, `@orientation`, `@position`, `stock`, `cloud`, `flow`, `aux`, `connector`, `#`
+- Each line classified by leading keyword: `@name`, `@version`, `@date`, `@author`, `@theme`, `@orientation`, `@position`, `stock`, `cloud`, `flow`, `aux`, `connector`, `group`, `end`, `#`
 - On parse error: collect all errors with line numbers, return alongside partial model
 - Do **not** throw exceptions — return `{ model: SDModel | null, errors: ParseError[] }`
 - Blank lines are silently ignored
@@ -37,6 +37,16 @@ flow <from> -> <to> : <label> (<polarity>) [weak|medium|strong]
 
 ### Multi-source connector lines
 `connector X <- A (+), B (-)` produces **two** `Connector` entries in `SDModel.connectors`. The same rule applies to multi-source `aux` lines.
+
+### `group` / `end` blocks
+`group <id> <label> [corner:upper-left|upper-right|lower-left|lower-right]` begins a group; `end` closes it.
+- `<id>` — unique identifier (no spaces)
+- `<label>` — display text; defaults to id if omitted
+- `[corner:*]` — label position in group rect; default `upper-right`
+- **Stocks and auxiliaries** declared inside the block are added to `group.members[]`
+- **Clouds cannot be grouped** — they auto-position relative to their connected stock
+- Groups cannot be nested; an element can belong to at most one group
+- Unclosed groups and duplicate membership produce `ParseError`
 
 ### Connector endpoint resolution
 `Connector.from` and `Connector.to` may reference any of four namespaces. The renderer resolves them in this order:

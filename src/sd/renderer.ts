@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import type { SDModel, Node, Flow, FlowStrength, Position } from './types';
+import type { SDModel, SDGroup, SDLabelCorner, Node, Flow, FlowStrength, Position } from './types';
 import { getTheme } from '../themes';
 import type { Theme } from '../themes';
 
@@ -31,6 +31,54 @@ const AUX_R    = 28;
 const CLOUD_RX = 38;  // approximate ellipse radii for cloud intersection
 const CLOUD_RY = 26;
 const VALVE_R  = 12;
+
+// ── Group geometry ────────────────────────────────────────────────────────────
+const GROUP_PADDING   = 40;
+const GROUP_LABEL_PAD = 12;
+const GROUP_FONT_SIZE = 12;
+
+interface GroupRect { x: number; y: number; w: number; h: number; }
+
+function nodeBounds(node: Node): { hw: number; hh: number } {
+  switch (node.kind) {
+    case 'stock': return { hw: STOCK_W / 2, hh: STOCK_H / 2 };
+    case 'cloud': return { hw: CLOUD_RX,    hh: CLOUD_RY };
+    case 'aux':   return { hw: AUX_R,       hh: AUX_R };
+  }
+}
+
+function computeGroupRect(group: SDGroup, model: SDModel): GroupRect {
+  const members = group.members
+    .map(id => model.stocks.find(s => s.id === id) ?? model.auxiliaries.find(a => a.id === id))
+    .filter((n): n is Node => !!n);
+
+  if (members.length === 0) return { x: 0, y: 0, w: 120, h: 80 };
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const node of members) {
+    const { hw, hh } = nodeBounds(node);
+    minX = Math.min(minX, node.x - hw);
+    minY = Math.min(minY, node.y - hh);
+    maxX = Math.max(maxX, node.x + hw);
+    maxY = Math.max(maxY, node.y + hh);
+  }
+
+  return {
+    x: minX - GROUP_PADDING,
+    y: minY - GROUP_PADDING,
+    w: maxX - minX + 2 * GROUP_PADDING,
+    h: maxY - minY + 2 * GROUP_PADDING,
+  };
+}
+
+function groupLabelAttrs(gr: GroupRect, corner: SDLabelCorner): { x: number; y: number; anchor: string } {
+  switch (corner) {
+    case 'upper-left':  return { x: gr.x + GROUP_LABEL_PAD,        y: gr.y + GROUP_LABEL_PAD + GROUP_FONT_SIZE, anchor: 'start' };
+    case 'upper-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD, y: gr.y + GROUP_LABEL_PAD + GROUP_FONT_SIZE, anchor: 'end'   };
+    case 'lower-left':  return { x: gr.x + GROUP_LABEL_PAD,        y: gr.y + gr.h - GROUP_LABEL_PAD,            anchor: 'start' };
+    case 'lower-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD, y: gr.y + gr.h - GROUP_LABEL_PAD,            anchor: 'end'   };
+  }
+}
 
 // Forrester cloud path centered at (0,0) — approx 76×52px
 const CLOUD_PATH =
@@ -139,6 +187,68 @@ function defineMarkers(svg: d3.Selection<SVGSVGElement, unknown, null, undefined
       .append('path')
       .attr('d', 'M 0 0 L 10 5 L 0 10 z')
       .attr('fill', cfg.fill);
+  }
+}
+
+// ── Group drawing ─────────────────────────────────────────────────────────────
+
+function drawGroups(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  model: SDModel,
+  theme: Theme,
+): void {
+  for (const group of model.groups) {
+    if (group.members.length === 0) continue;
+
+    const gr = computeGroupRect(group, model);
+    const lp = groupLabelAttrs(gr, group.labelCorner);
+
+    const g = svg.append('g')
+      .attr('class', 'sd-group')
+      .attr('data-id', group.id)
+      .style('cursor', 'move');
+
+    g.append('rect')
+      .attr('class', 'sd-group-rect')
+      .attr('x', gr.x).attr('y', gr.y)
+      .attr('width', gr.w).attr('height', gr.h)
+      .attr('rx', 8)
+      .attr('fill', theme.group.fill)
+      .attr('stroke', theme.group.stroke)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '8,4');
+
+    g.append('text')
+      .attr('class', 'sd-group-label')
+      .attr('x', lp.x).attr('y', lp.y)
+      .attr('text-anchor', lp.anchor)
+      .attr('fill', theme.group.label)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', `${GROUP_FONT_SIZE}px`)
+      .attr('font-style', 'italic')
+      .text(group.label);
+  }
+}
+
+function updateGroupRects(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  model: SDModel,
+): void {
+  for (const group of model.groups) {
+    if (group.members.length === 0) continue;
+
+    const gr  = computeGroupRect(group, model);
+    const lp  = groupLabelAttrs(gr, group.labelCorner);
+    const sel = svg.select<SVGGElement>(`g.sd-group[data-id="${group.id}"]`);
+    if (sel.empty()) continue;
+
+    sel.select('rect.sd-group-rect')
+      .attr('x', gr.x).attr('y', gr.y)
+      .attr('width', gr.w).attr('height', gr.h);
+
+    sel.select('text.sd-group-label')
+      .attr('x', lp.x).attr('y', lp.y)
+      .attr('text-anchor', lp.anchor);
   }
 }
 
@@ -635,6 +745,7 @@ export function render(svg: SvgSel, model: SDModel): void {
     .attr('width', p.x + p.w + 100).attr('height', p.y + p.h + 100)
     .attr('fill', theme.canvasBg);
 
+  drawGroups(svg, model, theme);
   drawFlows(svg, model, theme);
   drawConnectors(svg, model, theme);
   drawStocks(svg, model, theme);
@@ -650,6 +761,7 @@ export function redrawConnectors(svg: SvgSel, model: SDModel): void {
   svg.selectAll('.connector-group').remove();
   drawFlows(svg, model, theme);
   drawConnectors(svg, model, theme);
+  updateGroupRects(svg, model);
   // Bring nodes, legend box, and meta box back to front
   svg.selectAll('g.node').raise();
   svg.selectAll('.legend-box').raise();

@@ -1,6 +1,6 @@
 import type {
-  Polarity, CloudRole, FlowStrength,
-  Stock, Cloud, Auxiliary, Flow, Connector, SDModel,
+  Polarity, CloudRole, FlowStrength, SDLabelCorner,
+  Stock, Cloud, Auxiliary, Flow, Connector, SDGroup, SDModel,
 } from './types';
 import type { ModelMeta, Position, ParseResult, ParseError } from '../types';
 import { THEMES } from '../themes';
@@ -51,10 +51,13 @@ export function parseSD(lines: string[]): ParseResult {
   const auxiliaries: Auxiliary[]  = [];
   const flows:       Flow[]       = [];
   const connectors:  Connector[]  = [];
+  const groups:      SDGroup[]    = [];
   const savedPositions: Record<string, Position> = {};
 
   const flowLabels = new Set<string>();
   const auxNames   = new Set<string>();
+  const stockNames = new Set<string>();
+  let currentGroup: SDGroup | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
@@ -161,7 +164,9 @@ export function parseSD(lines: string[]): ParseResult {
       case 'stock': {
         if (!rest) { errors.push({ line: lineNum, message: 'stock requires a name' }); break; }
         const name = rest.split(/\s+/)[0];
+        stockNames.add(name);
         stocks.push({ kind: 'stock', id: name, label: name, x: 0, y: 0 });
+        if (currentGroup) currentGroup.members.push(name);
         break;
       }
 
@@ -248,6 +253,7 @@ export function parseSD(lines: string[]): ParseResult {
 
         auxNames.add(auxName);
         auxiliaries.push({ kind: 'aux', id: auxName, label: auxName, x: 0, y: 0 });
+        if (currentGroup) currentGroup.members.push(auxName);
 
         if (sourcePart) {
           const parsed = parseSourceList(sourcePart, lineNum, errors);
@@ -276,12 +282,70 @@ export function parseSD(lines: string[]): ParseResult {
         break;
       }
 
+      // group <id> <label> [corner:upper-left|upper-right|lower-left|lower-right]
+      case 'group': {
+        if (currentGroup) {
+          errors.push({ line: lineNum, message: `Cannot nest groups — already inside group "${currentGroup.id}"` });
+          break;
+        }
+        const bracketStart   = rest.indexOf('[');
+        const beforeBrackets = (bracketStart === -1 ? rest : rest.slice(0, bracketStart)).trim();
+        const spaceIdx       = beforeBrackets.indexOf(' ');
+        const groupId        = spaceIdx === -1 ? beforeBrackets : beforeBrackets.slice(0, spaceIdx).trim();
+        const rawLabel       = spaceIdx === -1 ? '' : beforeBrackets.slice(spaceIdx + 1).trim();
+
+        if (!groupId) {
+          errors.push({ line: lineNum, message: 'group requires an id' });
+          break;
+        }
+
+        let labelCorner: SDLabelCorner = 'upper-right';
+        const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim().toLowerCase());
+        for (const b of brackets) {
+          if      (b === 'corner:upper-left')  labelCorner = 'upper-left';
+          else if (b === 'corner:upper-right') labelCorner = 'upper-right';
+          else if (b === 'corner:lower-left')  labelCorner = 'lower-left';
+          else if (b === 'corner:lower-right') labelCorner = 'lower-right';
+          else errors.push({ line: lineNum, message: `Unknown group qualifier: [${b}]. Valid: [corner:upper-left], [corner:upper-right], [corner:lower-left], [corner:lower-right]` });
+        }
+
+        currentGroup = { kind: 'group', id: groupId, label: rawLabel || groupId, members: [], labelCorner };
+        break;
+      }
+
+      case 'end': {
+        if (!currentGroup) {
+          errors.push({ line: lineNum, message: '"end" without a matching "group"' });
+          break;
+        }
+        groups.push(currentGroup);
+        currentGroup = null;
+        break;
+      }
+
       default:
         errors.push({ line: lineNum, message: `Unknown keyword: "${keyword}"` });
     }
   }
 
   // ── Post-parse validation ─────────────────────────────────────────
+
+  // Unclosed group
+  if (currentGroup) {
+    errors.push({ line: 0, message: `Group "${currentGroup.id}" was never closed with "end"` });
+  }
+
+  // Element in multiple groups
+  const memberGroupMap = new Map<string, string>();
+  for (const group of groups) {
+    for (const memberId of group.members) {
+      if (memberGroupMap.has(memberId)) {
+        errors.push({ line: 0, message: `Element "${memberId}" appears in both group "${memberGroupMap.get(memberId)}" and group "${group.id}"` });
+      } else {
+        memberGroupMap.set(memberId, group.id);
+      }
+    }
+  }
 
   // Name collision: aux name == flow label
   for (const auxName of auxNames) {
@@ -322,7 +386,7 @@ export function parseSD(lines: string[]): ParseResult {
   }
 
   const model: SDModel = {
-    meta, stocks, clouds, auxiliaries, flows, connectors, savedPositions,
+    meta, stocks, clouds, auxiliaries, flows, connectors, groups, savedPositions,
   };
 
   return { model, errors };

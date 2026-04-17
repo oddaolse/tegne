@@ -32,6 +32,7 @@ export interface Theme {
   connector: { stroke: string };
   polarity:  { positive: string; negative: string };
   metaBox:   { fill: string; stroke: string; text: string };
+  group:     { fill: string; stroke: string; label: string };
   id:        IDTheme;
   iff:       IFFTheme;
   tm:        TMTheme;
@@ -90,6 +91,7 @@ const dark: Theme = {
   connector: { stroke: '#7c7caa' },
   polarity:  { positive: '#89b4fa', negative: '#cc3333' },
   metaBox:   { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
+  group:     { fill: '#1e1e2e', stroke: '#44446a', label: '#ffffff' },
   id: {
     canvasBg:             '#181825',
     borderStroke:         '#313244',
@@ -157,6 +159,7 @@ const light: Theme = {
   connector: { stroke: '#5566aa' },
   polarity:  { positive: '#2244cc', negative: '#cc0000' },
   metaBox:   { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
+  group:     { fill: '#e8e8f5', stroke: '#9999bb', label: '#111111' },
   id: {
     canvasBg:             '#f5f5f0',
     borderStroke:         '#4c4f69',
@@ -226,6 +229,7 @@ const tokyo: Theme = {
   connector: { stroke: '#7dcfff' },
   polarity:  { positive: '#ff9e64', negative: '#ff0040' },
   metaBox:   { fill: '#16161e', stroke: '#414868', text: '#a9b1d6' },
+  group:     { fill: '#181830', stroke: '#414868', label: '#ffffff' },
   id: {
     canvasBg:             '#0d0d14',
     borderStroke:         '#0d0d14',   // fallback; overridden per-platform when platformColoredBorder

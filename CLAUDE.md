@@ -98,6 +98,7 @@ tegne/
 └── fixtures/
     ├── population.sd              # SD: simple model — all five element types
     ├── factory_dynamics.sd        # SD: Forrester production-distribution chain (bullwhip effect)
+    ├── grouped_population.sd      # SD: demonstrates grouping — stocks and aux in groups
     ├── integration_example.id     # ID: minimal — no metadata overrides, all defaults
     ├── e-commerce-platform.id     # ID: full — all metadata, platforms, states, groups, placement overrides
     ├── customer_information.iff   # IFF: customer data landscape — all 7 roles, 2 groups
@@ -141,6 +142,16 @@ interface Connector {
 
 type Node = Stock | Cloud | Auxiliary;
 
+type SDLabelCorner = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
+
+interface SDGroup {
+  kind:        'group';
+  id:          string;
+  label:       string;
+  members:     string[];       // stock and aux IDs (not clouds)
+  labelCorner: SDLabelCorner;
+}
+
 interface SDModel {
   meta:           ModelMeta;
   stocks:         Stock[];
@@ -148,6 +159,7 @@ interface SDModel {
   auxiliaries:    Auxiliary[];
   flows:          Flow[];
   connectors:     Connector[];
+  groups:         SDGroup[];
   savedPositions: Record<string, Position>;
 }
 ```
@@ -183,6 +195,7 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] Canvas = page — viewport is sized to the page; no dead space outside
 - [x] Zoom controls — `+` / `−` / `⊡` buttons at ×1.10 per step; label shows current %
 - [x] Scroll to pan — mouse wheel and trackpad pan the canvas in both axes
+- [x] SD groupings — `group <id> <label> [corner:*]` / `end` blocks; stocks and auxiliaries only (not clouds); draggable as a unit; fixture: `fixtures/grouped_population.sd`
 
 ### Integration Diagram (`@type id`)
 - [x] `@type` directive — parser reads type first; defaults to `sd` if absent
@@ -233,7 +246,7 @@ Do **not** add fields to these interfaces without updating `types.ts` first.
 - [x] `src/project/` — cross-diagram ID registry (`buildRegistry`, `emptyRegistry`), project manifest parser, directory loader
 
 ### UI
-- [x] Help panel — floating, draggable, non-blocking; shows DSL syntax for `id`, `infoflow`, `tm` diagram types, and `@show-ids`
+- [x] Help panel — floating, draggable, non-blocking; shows DSL syntax for `sd`, `id`, `infoflow`, `tm` diagram types, and `@show-ids`
 
 ---
 

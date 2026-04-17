@@ -1,10 +1,11 @@
 import type { SDModel } from '../types';
 
-const CENTER_Y       = 450;
-const MARGIN_X       = 100;
-const CLOUD_OFFSET_X = 160;
-const AUX_OFFSET_Y   = -130;
-const AUX_OFFSET_X   = 90;
+const CENTER_Y         = 450;
+const MARGIN_X         = 100;
+const CLOUD_OFFSET_X   = 160;
+const AUX_OFFSET_Y     = -130;
+const AUX_OFFSET_X     = 90;
+const GROUP_STOCK_GAP  = 40;
 
 function stockSpacing(label: string): number {
   return Math.max(220, label.length * 9 + 40);
@@ -25,9 +26,37 @@ export function layout(model: SDModel): void {
     if (missing.length === 0) return;
   }
 
+  // Build set of grouped element IDs
+  const groupedIds = new Set<string>();
+  for (const group of model.groups) {
+    for (const id of group.members) {
+      groupedIds.add(id);
+    }
+  }
+
   // ── Auto-layout stocks ────────────────────────────────────────────
   let x = MARGIN_X;
+
+  // First: layout grouped stocks (contiguous per group)
+  for (const group of model.groups) {
+    const groupStocks = group.members
+      .map(id => model.stocks.find(s => s.id === id))
+      .filter((s): s is NonNullable<typeof s> => !!s);
+
+    if (groupStocks.length > 0) {
+      for (const stock of groupStocks) {
+        if (hasSaved && model.savedPositions[stock.id]) continue;
+        stock.x = x + stockSpacing(stock.label) / 2;
+        stock.y = CENTER_Y;
+        x += stockSpacing(stock.label);
+      }
+      x += GROUP_STOCK_GAP;  // gap between groups
+    }
+  }
+
+  // Then: layout ungrouped stocks
   for (const stock of model.stocks) {
+    if (groupedIds.has(stock.id)) continue;  // already placed
     if (hasSaved && model.savedPositions[stock.id]) continue;
     stock.x = x + stockSpacing(stock.label) / 2;
     stock.y = CENTER_Y;
@@ -58,10 +87,42 @@ export function layout(model: SDModel): void {
   }
 
   // ── Auto-layout auxiliaries ───────────────────────────────────────
-  // Map each aux to the stock it most directly influences
+  // For grouped auxiliaries: position above the group's stock region
+  for (const group of model.groups) {
+    const groupStocks = group.members
+      .map(id => model.stocks.find(s => s.id === id))
+      .filter((s): s is NonNullable<typeof s> => !!s);
+
+    const groupAux = group.members
+      .map(id => model.auxiliaries.find(a => a.id === id))
+      .filter((a): a is NonNullable<typeof a> => !!a);
+
+    if (groupAux.length === 0) continue;
+
+    // Find the center X of the group's stocks (or use MARGIN_X if no stocks)
+    let centerX = MARGIN_X;
+    if (groupStocks.length > 0) {
+      const minX = Math.min(...groupStocks.map(s => s.x));
+      const maxX = Math.max(...groupStocks.map(s => s.x));
+      centerX = (minX + maxX) / 2;
+    }
+
+    // Spread auxiliaries horizontally above the group
+    const count = groupAux.length;
+    groupAux.forEach((aux, idx) => {
+      if (hasSaved && model.savedPositions[aux.id]) return;
+      aux.y = CENTER_Y + AUX_OFFSET_Y;
+      aux.x = count === 1
+        ? centerX
+        : centerX + (idx - (count - 1) / 2) * AUX_OFFSET_X;
+    });
+  }
+
+  // Map each ungrouped aux to the stock it most directly influences
   const auxToStock = new Map<string, string>();
 
   for (const aux of model.auxiliaries) {
+    if (groupedIds.has(aux.id)) continue;  // already handled
     if (hasSaved && model.savedPositions[aux.id]) continue;
 
     // Prefer a connector going from this aux to a stock
@@ -118,6 +179,7 @@ export function layout(model: SDModel): void {
 
   // Auxiliaries with no stock mapping
   for (const aux of model.auxiliaries) {
+    if (groupedIds.has(aux.id)) continue;  // already handled
     if (hasSaved && model.savedPositions[aux.id]) continue;
     if (!auxToStock.has(aux.id)) {
       aux.x = MARGIN_X;

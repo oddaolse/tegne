@@ -36,8 +36,8 @@ export interface ParseResult {
 // ── Re-exports for consumers that import from the root types module ───────────
 
 export type {
-  Polarity, CloudRole, FlowStrength,
-  Stock, Cloud, Auxiliary, Flow, Connector, Node,
+  Polarity, CloudRole, FlowStrength, SDLabelCorner,
+  Stock, Cloud, Auxiliary, Flow, Connector, SDGroup, Node,
   SDModel,
 } from './sd/types';
 

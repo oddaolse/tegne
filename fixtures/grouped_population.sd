@@ -1,0 +1,26 @@
+@name Grouped Population Model
+@version 1.0
+@author Test Fixture
+@theme dark
+
+# Demonstrates SD grouping: stocks and auxiliaries can be grouped
+# Clouds remain outside groups (tied to their connected stock via flows)
+
+group birth_loop Birth Loop [corner:upper-left]
+  stock Population
+  aux birth_rate <- Population (+)
+end
+
+group death_loop Death Loop [corner:upper-right]
+  aux death_rate
+  aux carrying_capacity <- Population (-)
+end
+
+cloud Births [source]
+cloud Deaths [sink]
+
+flow Births -> Population : births (+) strong
+flow Population -> Deaths : deaths (-) weak
+
+connector births <- birth_rate (+)
+connector death_rate <- carrying_capacity (-)
