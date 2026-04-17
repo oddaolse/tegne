@@ -26,15 +26,15 @@ Allows IT Architects to draw integration landscape diagrams showing systems, dat
 ## Element Syntax
 
 ```
-system    <id>  [<platform>]  [<state>]  [label:below]
-database  <id>  [<platform>]  [<state>]  [label:inside]
-queue     <id>  [<platform>]  [<state>]  [label:inside]
+system    <id>  [<platform>]  [<state>]  [placement:below]
+database  <id>  [<platform>]  [<state>]  [placement:inside]
+queue     <id>  [<platform>]  [<state>]  [placement:inside]
 ```
 
 - `<id>` — unique identifier, used in `connect` lines
 - `[<platform>]` — required; one of: `aws`, `azure`, `on-prem`, `gcp`, `oracle`
 - `[<state>]` — optional; one of: `new`, `changing`, `decommissioned`; absent = current
-- `[label:inside]` / `[label:below]` — optional label placement override
+- `[placement:inside]` / `[placement:below]` — optional label placement override
 
 ### Default label placement
 
@@ -204,14 +204,14 @@ Named boundary rectangles drawn behind their member elements.
 ### Syntax
 
 ```
-group <id> <label> [label:upper-left|upper-right|lower-left|lower-right]
+group <id> <label> [corner:upper-left|upper-right|lower-left|lower-right]
   system/database/queue declarations...
 end
 ```
 
 - `<id>` — unique identifier (no spaces)
 - `<label>` — display text (everything between id and first `[`); defaults to id if omitted
-- `[label:*]` — corner for the label; default `upper-right`
+- `[corner:*]` — corner for the label; default `upper-right`
 - Elements declared inside the block are added to the group's `members` list
 - Groups cannot be nested
 - An element can belong to at most one group
@@ -239,5 +239,5 @@ Group members are placed contiguously in the grid. If a group would spill across
 
 | File | Purpose |
 |---|---|
-| `fixtures/integration_example.id` | E-commerce platform — all element types, states, and connection styles; two groups |
-| `fixtures/banking_platform.id` | Digital banking platform — four groups covering all label corners, all five platforms, all four states, all three element types, ungrouped elements for contrast |
+| `fixtures/integration_example.id` | Minimal — no metadata overrides, all defaults |
+| `fixtures/e-commerce-platform.id` | Full — all metadata, platforms, states, groups, placement overrides |

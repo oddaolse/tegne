@@ -43,6 +43,8 @@ Tegne supports multiple diagram types, selected via `@type` at the top of the DS
 | `testing.md` | Fixtures, acceptance criteria |
 | `dependencies.md` | Pinned dependency list, what not to add |
 | `integration-diagram.md` | ID element specs, platform colours, DSL syntax, arrow rules |
+| `infoflow-diagram.md` | IFF store/link specs, roles, relationships, groups |
+| `threat-model.md` | TM ref/boundary/flow/threat/mitigate specs, STRIDE |
 
 **Read all rule files and `requirements.md` before writing any code.**
 
@@ -118,6 +120,7 @@ interface ModelMeta {
   author?:      string;
   theme?:       string;   // theme name (dark | light | tokyo); default: dark
   orientation?: 'landscape' | 'portrait';
+  size?:        'a4' | 'a3' | 'a2' | 'a1' | 'a0';  // paper size; default: a4
 }
 
 interface Position  { x: number; y: number; }
@@ -150,6 +153,8 @@ interface SDModel {
 ```
 
 Do **not** add fields to these interfaces without updating `types.ts` first.
+
+> **Other diagram models:** See `src/id/types.ts` (IDModel), `src/iff/types.ts` (IFFModel), `src/tm/types.ts` (TMModel).
 
 ---
 
