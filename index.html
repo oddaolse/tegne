@@ -271,7 +271,7 @@ end</pre>
 
       <div class="help-section">
         <h2>Integration Diagram &nbsp;·&nbsp; @type id</h2>
-        <p>Models an IT architecture landscape — systems, databases, and queues, how they connect, and their lifecycle state. Each element is coloured by platform (AWS, Azure, GCP, Oracle, on-prem). State is shown through fill transparency and border style.</p>
+        <p>Models an IT architecture landscape — systems, databases, and queues, how they connect, and their lifecycle state. Define your own location-types (e.g. aws, legacy, cloud) mapped to palette colours. State is shown through fill transparency and border style.</p>
         <pre>@type     id
 @name     My Platform
 @version  1.0
@@ -280,13 +280,24 @@ end</pre>
 @size     a4 | a3 | a2 | a1 | a0
 @legend   on | off               # show/hide legend box (default: on)
 
-system    &lt;id&gt;  [aws|azure|gcp|oracle|on-prem]  [new|changing|decommissioned]
-database  &lt;id&gt;  [aws|azure|gcp|oracle|on-prem]  [new|changing|decommissioned]
-queue     &lt;id&gt;  [aws|azure|gcp|oracle|on-prem]  [new|changing|decommissioned]
+# Define location-types with palette colours
+@location-types
+  aws orange
+  azure blue
+  gcp green
+  on-prem grey
+  legacy green
+  cloud blue
+
+# Palette colours: green blue red orange purple grey yellow cyan pink teal
+
+system    &lt;id&gt;  [&lt;location-type&gt;]  [new|changing|decommissioned]
+database  &lt;id&gt;  [&lt;location-type&gt;]  [new|changing|decommissioned]
+queue     &lt;id&gt;  [&lt;location-type&gt;]  [new|changing|decommissioned]
 
 # Label placement override (default: system=inside, database/queue=below)
-system    &lt;id&gt;  [platform]  [placement:below]
-database  &lt;id&gt;  [platform]  [placement:inside]
+system    &lt;id&gt;  [&lt;location-type&gt;]  [placement:below]
+database  &lt;id&gt;  [&lt;location-type&gt;]  [placement:inside]
 
 connect  &lt;from&gt;  -&gt;   &lt;to&gt;  : &lt;protocol&gt;    # unidirectional
 connect  &lt;from&gt;  &lt;-&gt;  &lt;to&gt;  : &lt;protocol&gt;    # bidirectional
@@ -300,7 +311,7 @@ end</pre>
 
       <div class="help-section">
         <h2>Information Flow Diagram &nbsp;·&nbsp; @type infoflow</h2>
-        <p>Models a data landscape — where data lives, what role each store plays, and how data moves between stores. Each store is coloured by its role (master, replica, derived, etc.). Relationships describe the nature of the data flow.</p>
+        <p>Models a data landscape — where data lives, what role each store plays, and how data moves between stores. Define your own location-types (e.g. master, replica, derived) mapped to palette colours. Relationships describe the nature of the data flow.</p>
         <pre>@type     infoflow
 @name     My Data Landscape
 @version  1.0
@@ -308,7 +319,19 @@ end</pre>
 @theme    dark | light | tokyo
 @size     a4 | a3 | a2 | a1 | a0
 
-store &lt;id&gt;  [master|replica|derived|aggregate|golden|reference|consumer]
+# Define location-types with palette colours
+@location-types
+  master blue
+  replica cyan
+  derived green
+  aggregate purple
+  golden orange
+  reference grey
+  consumer grey
+
+# Palette colours: green blue red orange purple grey yellow cyan pink teal
+
+store &lt;id&gt;  [&lt;location-type&gt;]
             [new|changing|decommissioned]
             [label:"Human Readable Name"]
 

@@ -8,14 +8,14 @@ export const STORE_H = 60;
 
 // ── Border style ──────────────────────────────────────────────────────────────
 
-export interface BorderStyle { strokeWidth: number; dashArray: string | null; }
+export interface BorderStyle { strokeWidth: number; dashArray: string | null; fillOpacity: number; }
 
 export function getBorderStyle(state: IFFState): BorderStyle {
   switch (state) {
-    case 'current':        return { strokeWidth: 2, dashArray: null  };
-    case 'new':            return { strokeWidth: 4, dashArray: null  };
-    case 'changing':       return { strokeWidth: 2, dashArray: '6,4' };
-    case 'decommissioned': return { strokeWidth: 2, dashArray: '2,4' };
+    case 'current':        return { strokeWidth: 2, dashArray: null,  fillOpacity: 1.0 };
+    case 'new':            return { strokeWidth: 4, dashArray: null,  fillOpacity: 1.0 };
+    case 'changing':       return { strokeWidth: 2, dashArray: '6,4', fillOpacity: 0.5 };
+    case 'decommissioned': return { strokeWidth: 2, dashArray: '2,4', fillOpacity: 1.0 };
   }
 }
 
@@ -38,6 +38,7 @@ export function drawStore(
     .attr('width', STORE_W).attr('height', STORE_H)
     .attr('rx', 8)
     .attr('fill', fill)
+    .attr('fill-opacity', border.fillOpacity)
     .attr('stroke', stroke)
     .attr('stroke-width', border.strokeWidth);
   if (border.dashArray) rect.attr('stroke-dasharray', border.dashArray);

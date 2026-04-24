@@ -1,6 +1,6 @@
 import * as d3 from 'd3';
-import type { IDModel, IDElement, IDGroup, LabelCorner, Position, Platform, IDState } from './types';
-import { getTheme } from '../themes';
+import type { IDModel, IDElement, IDGroup, LabelCorner, Position, IDState } from './types';
+import { getTheme, getLocationColour } from '../themes';
 import type { IDTheme } from '../themes';
 import { pageRect } from '../sd/renderer';
 import {
@@ -52,14 +52,17 @@ function groupLabelAttrs(gr: GroupRect, corner: LabelCorner): { x: number; y: nu
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
-function getFill(el: IDElement, theme: IDTheme): string {
-  return theme.platforms[el.platform][el.state];
+function getFill(el: IDElement, model: IDModel, theme: IDTheme): string {
+  const locationType = model.meta.locationTypes?.find(lt => lt.name === el.locationType);
+  if (!locationType) return theme.palette.grey[el.state];
+  return getLocationColour(theme.palette, locationType.colour, el.state);
 }
 
-function getBorderStroke(el: IDElement, theme: IDTheme): string {
-  return theme.platformColoredBorder
-    ? theme.platforms[el.platform][el.state]
-    : theme.borderStroke;
+function getBorderStroke(el: IDElement, model: IDModel, theme: IDTheme): string {
+  if (!theme.platformColoredBorder) return theme.borderStroke;
+  const locationType = model.meta.locationTypes?.find(lt => lt.name === el.locationType);
+  if (!locationType) return theme.palette.grey[el.state];
+  return getLocationColour(theme.palette, locationType.colour, el.state);
 }
 
 // ── Geometry ──────────────────────────────────────────────────────────────────
@@ -201,9 +204,9 @@ function drawElements(
   theme: IDTheme,
 ): void {
   for (const el of model.elements) {
-    const fill   = getFill(el, theme);
+    const fill   = getFill(el, model, theme);
     const border = getBorderStyle(el.state);
-    const stroke = getBorderStroke(el, theme);
+    const stroke = getBorderStroke(el, model, theme);
 
     const g = svg.append('g')
       .attr('class', 'id-node')
@@ -355,8 +358,7 @@ function drawMetaBox(
 
 // ── Legend box ────────────────────────────────────────────────────────────────
 
-const PLATFORM_ORDER: Platform[] = ['aws', 'azure', 'gcp', 'oracle', 'on-prem'];
-const STATE_ORDER: IDState[]     = ['current', 'new', 'changing', 'decommissioned'];
+const STATE_ORDER: IDState[] = ['current', 'new', 'changing', 'decommissioned'];
 
 function drawLegendBox(
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
@@ -364,18 +366,22 @@ function drawLegendBox(
   theme: IDTheme,
 ): void {
   const seen = new Set<string>();
-  const entries: Array<{ platform: Platform; state: IDState }> = [];
+  const entries: Array<{ locationType: string; state: IDState }> = [];
   for (const el of model.elements) {
-    const key = `${el.platform}:${el.state}`;
+    const key = `${el.locationType}:${el.state}`;
     if (!seen.has(key)) {
       seen.add(key);
-      entries.push({ platform: el.platform, state: el.state });
+      entries.push({ locationType: el.locationType, state: el.state });
     }
   }
   if (entries.length === 0) return;
 
+  // Sort by location-type declaration order, then by state
+  const locationTypeOrder = (model.meta.locationTypes ?? []).map(lt => lt.name);
   entries.sort((a, b) => {
-    const pd = PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform);
+    const ai = locationTypeOrder.indexOf(a.locationType);
+    const bi = locationTypeOrder.indexOf(b.locationType);
+    const pd = (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     if (pd !== 0) return pd;
     return STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state);
   });
@@ -417,7 +423,10 @@ function drawLegendBox(
   entries.forEach((entry, i) => {
     const rowY   = PAD + HEADER_H + i * LINE_H;
     const border = getBorderStyle(entry.state);
-    const fill   = theme.platforms[entry.platform][entry.state];
+    const locationType = model.meta.locationTypes?.find(lt => lt.name === entry.locationType);
+    const fill   = locationType
+      ? getLocationColour(theme.palette, locationType.colour, entry.state)
+      : theme.palette.grey[entry.state];
     const stroke = theme.platformColoredBorder ? fill : theme.borderStroke;
 
     const swatch = g.append('rect')
@@ -439,7 +448,7 @@ function drawLegendBox(
       .attr('fill', theme.metaBox.text)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '11px')
-      .text(`${entry.platform}${stateLabel}`);
+      .text(`${entry.locationType}${stateLabel}`);
   });
 }
 

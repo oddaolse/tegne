@@ -1,6 +1,6 @@
 import * as d3 from 'd3';
-import type { IFFModel, IFFStore, IFFGroup, IFFLabelCorner, IFFRole, Position } from './types';
-import { getTheme } from '../themes';
+import type { IFFModel, IFFStore, IFFGroup, IFFLabelCorner, IFFState, Position } from './types';
+import { getTheme, getLocationColour } from '../themes';
 import type { IFFTheme } from '../themes';
 import { pageRect } from '../sd/renderer';
 import { STORE_W, STORE_H, elementBounds, getBorderStyle, drawStore } from './shapes';
@@ -137,7 +137,10 @@ function drawStores(
   theme: IFFTheme,
 ): void {
   for (const store of model.stores) {
-    const fill   = theme.roles[store.role];
+    const locationType = model.meta.locationTypes?.find(lt => lt.name === store.locationType);
+    const fill   = locationType
+      ? getLocationColour(theme.palette, locationType.colour, store.state)
+      : theme.palette.grey[store.state];
     const border = getBorderStyle(store.state);
 
     const g = svg.append('g')
@@ -157,7 +160,7 @@ function drawStores(
       .attr('font-size', '11px')
       .text(store.label);
 
-    // Role badge — small label below store
+    // Location-type badge — small label below store
     g.append('text')
       .attr('x', 0).attr('y', STORE_H / 2 + 14)
       .attr('text-anchor', 'middle')
@@ -165,7 +168,7 @@ function drawStores(
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '10px')
       .attr('font-style', 'italic')
-      .text(store.role);
+      .text(store.locationType);
 
     if (model.meta.showIds) {
       g.append('text')
@@ -289,20 +292,35 @@ function drawMetaBox(
 
 // ── Legend box ────────────────────────────────────────────────────────────────
 
-const IFF_ROLE_ORDER: IFFRole[] = [
-  'master', 'replica', 'derived', 'aggregate', 'golden', 'reference', 'consumer',
-];
+const STATE_ORDER: IFFState[] = ['current', 'new', 'changing', 'decommissioned'];
 
 function drawIffLegendBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
-  const presentRoles = new Set(model.stores.map(s => s.role));
-  const entries = IFF_ROLE_ORDER.filter(r => presentRoles.has(r));
+  const seen = new Set<string>();
+  const entries: Array<{ locationType: string; state: IFFState }> = [];
+  for (const store of model.stores) {
+    const key = `${store.locationType}:${store.state}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      entries.push({ locationType: store.locationType, state: store.state });
+    }
+  }
   if (entries.length === 0) return;
+
+  // Sort by location-type declaration order, then by state
+  const locationTypeOrder = (model.meta.locationTypes ?? []).map(lt => lt.name);
+  entries.sort((a, b) => {
+    const ai = locationTypeOrder.indexOf(a.locationType);
+    const bi = locationTypeOrder.indexOf(b.locationType);
+    const pd = (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    if (pd !== 0) return pd;
+    return STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state);
+  });
 
   const PAD      = 12;
   const LINE_H   = 22;
   const SWATCH_W = 22;
   const SWATCH_H = 14;
-  const BOX_W    = 190;
+  const BOX_W    = 220;
   const HEADER_H = LINE_H;
   const BOX_H    = PAD * 2 + HEADER_H + entries.length * LINE_H;
 
@@ -332,24 +350,34 @@ function drawIffLegendBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): voi
     .attr('font-style', 'italic')
     .text('Legend');
 
-  entries.forEach((role, i) => {
+  entries.forEach((entry, i) => {
     const rowY = PAD + HEADER_H + i * LINE_H;
-    g.append('rect')
+    const border = getBorderStyle(entry.state);
+    const locationType = model.meta.locationTypes?.find(lt => lt.name === entry.locationType);
+    const fill = locationType
+      ? getLocationColour(theme.palette, locationType.colour, entry.state)
+      : theme.palette.grey[entry.state];
+
+    const swatch = g.append('rect')
       .attr('x', PAD)
       .attr('y', rowY + (LINE_H - SWATCH_H) / 2)
       .attr('width', SWATCH_W)
       .attr('height', SWATCH_H)
       .attr('rx', 2)
-      .attr('fill', theme.roles[role])
+      .attr('fill', fill)
+      .attr('fill-opacity', border.fillOpacity)
       .attr('stroke', theme.borderStroke)
       .attr('stroke-width', 1);
+    if (border.dashArray) swatch.attr('stroke-dasharray', border.dashArray);
+
+    const stateLabel = entry.state === 'current' ? '' : ` · ${entry.state}`;
     g.append('text')
       .attr('x', PAD + SWATCH_W + 8)
       .attr('y', rowY + LINE_H / 2 + 4)
       .attr('fill', theme.metaBox.text)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '11px')
-      .text(role);
+      .text(`${entry.locationType}${stateLabel}`);
   });
 }
 

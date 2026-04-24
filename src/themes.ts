@@ -1,4 +1,40 @@
-import type { Platform, IFFRole } from './types';
+// ── Colour Palette ────────────────────────────────────────────────────────────
+
+export interface BaseColour {
+  current:        string;
+  new:            string;
+  changing:       string;
+  decommissioned: string;
+}
+
+export interface ColourPalette {
+  green:   BaseColour;
+  blue:    BaseColour;
+  red:     BaseColour;
+  orange:  BaseColour;
+  purple:  BaseColour;
+  grey:    BaseColour;
+  yellow:  BaseColour;
+  cyan:    BaseColour;
+  pink:    BaseColour;
+  teal:    BaseColour;
+}
+
+export const VALID_PALETTE_COLOURS = [
+  'green', 'blue', 'red', 'orange', 'purple', 'grey', 'yellow', 'cyan', 'pink', 'teal',
+] as const;
+
+export type PaletteColourName = typeof VALID_PALETTE_COLOURS[number];
+
+export function getLocationColour(
+  palette: ColourPalette,
+  colourName: string,
+  state: string,
+): string {
+  const base = palette[colourName as keyof ColourPalette];
+  if (!base) return palette.grey.current;
+  return base[state as keyof BaseColour] ?? base.current;
+}
 
 export type StrideCategory = 'S' | 'T' | 'R' | 'I' | 'D' | 'E';
 
@@ -14,6 +50,7 @@ export interface TMTheme {
   refLabelText:   string;
   stride:         Record<StrideCategory, string>;
   metaBox:        { fill: string; stroke: string; text: string };
+  palette:        ColourPalette;
 }
 
 export interface Theme {
@@ -46,30 +83,23 @@ export interface IFFTheme {
   connStroke:   string;
   labelText:    string;
   glow:         boolean;
-  roles:        Record<IFFRole, string>;
+  palette:      ColourPalette;
   metaBox:      { fill: string; stroke: string; text: string };
   group:        { fill: string; stroke: string; label: string };
 }
 
 // ── Integration Diagram theme ─────────────────────────────────────────────────
 
-export interface IDPlatformColors {
-  current:        string;
-  new:            string;
-  changing:       string;
-  decommissioned: string;
-}
-
 export interface IDTheme {
   canvasBg:              string;
-  borderStroke:          string;   // default border colour; overridden per-platform when platformColoredBorder
-  platformColoredBorder: boolean;  // true = border matches platform colour (neon outline)
+  borderStroke:          string;   // default border colour; overridden per-location when platformColoredBorder
+  platformColoredBorder: boolean;  // true = border matches location colour (neon outline)
   connStroke:            string;
   labelInside:           string;
   labelBelow:            string;
   protocolLabel:         string;
   glow:                  boolean;  // apply SVG glow filter on elements
-  platforms:             Record<Platform, IDPlatformColors>;
+  palette:               ColourPalette;
   metaBox:               { fill: string; stroke: string; text: string };
   group:                 { fill: string; stroke: string; label: string };
 }
@@ -101,12 +131,17 @@ const dark: Theme = {
     labelBelow:           '#a6adc8',
     protocolLabel:        '#ffffff',
     glow:                 false,
-    platforms: {
-      'aws':     { current: '#FF9900', new: '#FFB84D', changing: '#CC7A00', decommissioned: '#585b70' },
-      'azure':   { current: '#0078D4', new: '#2B9AF3', changing: '#005EA6', decommissioned: '#585b70' },
-      'on-prem': { current: '#91A3B0', new: '#AAB9C3', changing: '#6C808C', decommissioned: '#585b70' },
-      'gcp':     { current: '#34A853', new: '#46C166', changing: '#267D3E', decommissioned: '#585b70' },
-      'oracle':  { current: '#C74634', new: '#E05A45', changing: '#963428', decommissioned: '#585b70' },
+    palette: {
+      green:  { current: '#28B482', new: '#A5E1D2', changing: '#007272', decommissioned: '#585b70' },
+      blue:   { current: '#2563EB', new: '#60A5FA', changing: '#1E40AF', decommissioned: '#585b70' },
+      red:    { current: '#DC2626', new: '#F87171', changing: '#991B1B', decommissioned: '#585b70' },
+      orange: { current: '#EA580C', new: '#FB923C', changing: '#9A3412', decommissioned: '#585b70' },
+      purple: { current: '#7C3AED', new: '#A78BFA', changing: '#5B21B6', decommissioned: '#585b70' },
+      grey:   { current: '#6B7280', new: '#9CA3AF', changing: '#4B5563', decommissioned: '#585b70' },
+      yellow: { current: '#CA8A04', new: '#FACC15', changing: '#854D0E', decommissioned: '#585b70' },
+      cyan:   { current: '#0891B2', new: '#22D3EE', changing: '#0E7490', decommissioned: '#585b70' },
+      pink:   { current: '#DB2777', new: '#F472B6', changing: '#9D174D', decommissioned: '#585b70' },
+      teal:   { current: '#0D9488', new: '#2DD4BF', changing: '#115E59', decommissioned: '#585b70' },
     },
     metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
     group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#ffffff' },
@@ -117,14 +152,17 @@ const dark: Theme = {
     connStroke:   '#6c7086',
     labelText:    '#ffffff',
     glow:         false,
-    roles: {
-      master:    '#2563EB',
-      replica:   '#1E3A8A',
-      derived:   '#16A34A',
-      aggregate: '#7C3AED',
-      golden:    '#D97706',
-      reference: '#4B6A8A',
-      consumer:  '#374151',
+    palette: {
+      green:  { current: '#28B482', new: '#A5E1D2', changing: '#007272', decommissioned: '#585b70' },
+      blue:   { current: '#2563EB', new: '#60A5FA', changing: '#1E40AF', decommissioned: '#585b70' },
+      red:    { current: '#DC2626', new: '#F87171', changing: '#991B1B', decommissioned: '#585b70' },
+      orange: { current: '#EA580C', new: '#FB923C', changing: '#9A3412', decommissioned: '#585b70' },
+      purple: { current: '#7C3AED', new: '#A78BFA', changing: '#5B21B6', decommissioned: '#585b70' },
+      grey:   { current: '#6B7280', new: '#9CA3AF', changing: '#4B5563', decommissioned: '#585b70' },
+      yellow: { current: '#CA8A04', new: '#FACC15', changing: '#854D0E', decommissioned: '#585b70' },
+      cyan:   { current: '#0891B2', new: '#22D3EE', changing: '#0E7490', decommissioned: '#585b70' },
+      pink:   { current: '#DB2777', new: '#F472B6', changing: '#9D174D', decommissioned: '#585b70' },
+      teal:   { current: '#0D9488', new: '#2DD4BF', changing: '#115E59', decommissioned: '#585b70' },
     },
     metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
     group:   { fill: '#1e1e2e', stroke: '#44446a', label: '#ffffff' },
@@ -139,6 +177,18 @@ const dark: Theme = {
     refLabelText:   '#cdd6f4',
     stride: { S: '#cc3333', T: '#e06c00', R: '#d4a017', I: '#7c3aed', D: '#0077cc', E: '#2a7a2a' },
     metaBox: { fill: '#1a1a2e', stroke: '#555577', text: '#a6adc8' },
+    palette: {
+      green:  { current: '#28B482', new: '#A5E1D2', changing: '#007272', decommissioned: '#585b70' },
+      blue:   { current: '#2563EB', new: '#60A5FA', changing: '#1E40AF', decommissioned: '#585b70' },
+      red:    { current: '#DC2626', new: '#F87171', changing: '#991B1B', decommissioned: '#585b70' },
+      orange: { current: '#EA580C', new: '#FB923C', changing: '#9A3412', decommissioned: '#585b70' },
+      purple: { current: '#7C3AED', new: '#A78BFA', changing: '#5B21B6', decommissioned: '#585b70' },
+      grey:   { current: '#6B7280', new: '#9CA3AF', changing: '#4B5563', decommissioned: '#585b70' },
+      yellow: { current: '#CA8A04', new: '#FACC15', changing: '#854D0E', decommissioned: '#585b70' },
+      cyan:   { current: '#0891B2', new: '#22D3EE', changing: '#0E7490', decommissioned: '#585b70' },
+      pink:   { current: '#DB2777', new: '#F472B6', changing: '#9D174D', decommissioned: '#585b70' },
+      teal:   { current: '#0D9488', new: '#2DD4BF', changing: '#115E59', decommissioned: '#585b70' },
+    },
   },
 };
 
@@ -169,12 +219,17 @@ const light: Theme = {
     labelBelow:           '#111111',
     protocolLabel:        '#111111',
     glow:                 false,
-    platforms: {
-      'aws':     { current: '#E68A00', new: '#FF9900', changing: '#B36B00', decommissioned: '#9e9e9e' },
-      'azure':   { current: '#0063B1', new: '#0078D4', changing: '#004E8C', decommissioned: '#9e9e9e' },
-      'on-prem': { current: '#6C808C', new: '#91A3B0', changing: '#4A5F6A', decommissioned: '#9e9e9e' },
-      'gcp':     { current: '#1E8E3E', new: '#34A853', changing: '#146B2F', decommissioned: '#9e9e9e' },
-      'oracle':  { current: '#A33525', new: '#C74634', changing: '#7A2718', decommissioned: '#9e9e9e' },
+    palette: {
+      green:  { current: '#0F7A5A', new: '#28B482', changing: '#065240', decommissioned: '#9e9e9e' },
+      blue:   { current: '#1D4ED8', new: '#3B82F6', changing: '#1E3A8A', decommissioned: '#9e9e9e' },
+      red:    { current: '#B91C1C', new: '#DC2626', changing: '#7F1D1D', decommissioned: '#9e9e9e' },
+      orange: { current: '#C2410C', new: '#EA580C', changing: '#7C2D12', decommissioned: '#9e9e9e' },
+      purple: { current: '#6D28D9', new: '#7C3AED', changing: '#4C1D95', decommissioned: '#9e9e9e' },
+      grey:   { current: '#4B5563', new: '#6B7280', changing: '#374151', decommissioned: '#9e9e9e' },
+      yellow: { current: '#A16207', new: '#CA8A04', changing: '#713F12', decommissioned: '#9e9e9e' },
+      cyan:   { current: '#0E7490', new: '#0891B2', changing: '#155E75', decommissioned: '#9e9e9e' },
+      pink:   { current: '#BE185D', new: '#DB2777', changing: '#831843', decommissioned: '#9e9e9e' },
+      teal:   { current: '#0F766E', new: '#0D9488', changing: '#134E4A', decommissioned: '#9e9e9e' },
     },
     metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
     group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#111111' },
@@ -185,14 +240,17 @@ const light: Theme = {
     connStroke:   '#8c8fa1',
     labelText:    '#111111',
     glow:         false,
-    roles: {
-      master:    '#1D4ED8',
-      replica:   '#3B82F6',
-      derived:   '#15803D',
-      aggregate: '#6D28D9',
-      golden:    '#B45309',
-      reference: '#64748B',
-      consumer:  '#9CA3AF',
+    palette: {
+      green:  { current: '#0F7A5A', new: '#28B482', changing: '#065240', decommissioned: '#9e9e9e' },
+      blue:   { current: '#1D4ED8', new: '#3B82F6', changing: '#1E3A8A', decommissioned: '#9e9e9e' },
+      red:    { current: '#B91C1C', new: '#DC2626', changing: '#7F1D1D', decommissioned: '#9e9e9e' },
+      orange: { current: '#C2410C', new: '#EA580C', changing: '#7C2D12', decommissioned: '#9e9e9e' },
+      purple: { current: '#6D28D9', new: '#7C3AED', changing: '#4C1D95', decommissioned: '#9e9e9e' },
+      grey:   { current: '#4B5563', new: '#6B7280', changing: '#374151', decommissioned: '#9e9e9e' },
+      yellow: { current: '#A16207', new: '#CA8A04', changing: '#713F12', decommissioned: '#9e9e9e' },
+      cyan:   { current: '#0E7490', new: '#0891B2', changing: '#155E75', decommissioned: '#9e9e9e' },
+      pink:   { current: '#BE185D', new: '#DB2777', changing: '#831843', decommissioned: '#9e9e9e' },
+      teal:   { current: '#0F766E', new: '#0D9488', changing: '#134E4A', decommissioned: '#9e9e9e' },
     },
     metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
     group:   { fill: '#e8e8f5', stroke: '#9999bb', label: '#111111' },
@@ -207,6 +265,18 @@ const light: Theme = {
     refLabelText:   '#111111',
     stride: { S: '#cc0000', T: '#e06c00', R: '#b8860b', I: '#6d28d9', D: '#0063b1', E: '#1a6b1a' },
     metaBox: { fill: '#ebebf5', stroke: '#aaaacc', text: '#444466' },
+    palette: {
+      green:  { current: '#0F7A5A', new: '#28B482', changing: '#065240', decommissioned: '#9e9e9e' },
+      blue:   { current: '#1D4ED8', new: '#3B82F6', changing: '#1E3A8A', decommissioned: '#9e9e9e' },
+      red:    { current: '#B91C1C', new: '#DC2626', changing: '#7F1D1D', decommissioned: '#9e9e9e' },
+      orange: { current: '#C2410C', new: '#EA580C', changing: '#7C2D12', decommissioned: '#9e9e9e' },
+      purple: { current: '#6D28D9', new: '#7C3AED', changing: '#4C1D95', decommissioned: '#9e9e9e' },
+      grey:   { current: '#4B5563', new: '#6B7280', changing: '#374151', decommissioned: '#9e9e9e' },
+      yellow: { current: '#A16207', new: '#CA8A04', changing: '#713F12', decommissioned: '#9e9e9e' },
+      cyan:   { current: '#0E7490', new: '#0891B2', changing: '#155E75', decommissioned: '#9e9e9e' },
+      pink:   { current: '#BE185D', new: '#DB2777', changing: '#831843', decommissioned: '#9e9e9e' },
+      teal:   { current: '#0F766E', new: '#0D9488', changing: '#134E4A', decommissioned: '#9e9e9e' },
+    },
   },
 };
 
@@ -232,19 +302,24 @@ const tokyo: Theme = {
   group:     { fill: '#181830', stroke: '#414868', label: '#ffffff' },
   id: {
     canvasBg:             '#0d0d14',
-    borderStroke:         '#0d0d14',   // fallback; overridden per-platform when platformColoredBorder
+    borderStroke:         '#0d0d14',   // fallback; overridden per-location when platformColoredBorder
     platformColoredBorder: true,       // neon border = neon glow outline
     connStroke:           '#7c6f9f',
     labelInside:          '#ffffff',
     labelBelow:           '#e2e0ff',
     protocolLabel:        '#ffffff',
     glow:                 true,
-    platforms: {
-      'aws':     { current: '#FF6600', new: '#FF8C1A', changing: '#803300', decommissioned: '#2a2a3a' },
-      'azure':   { current: '#00BFFF', new: '#40CFFF', changing: '#006680', decommissioned: '#2a2a3a' },
-      'on-prem': { current: '#B0C8D8', new: '#C8DDE8', changing: '#6A8899', decommissioned: '#2a2a3a' },
-      'gcp':     { current: '#00FF7F', new: '#40FFAA', changing: '#007A3D', decommissioned: '#2a2a3a' },
-      'oracle':  { current: '#FF1744', new: '#FF5252', changing: '#800020', decommissioned: '#2a2a3a' },
+    palette: {
+      green:  { current: '#00FF7F', new: '#40FFAA', changing: '#007A3D', decommissioned: '#2a2a3a' },
+      blue:   { current: '#00BFFF', new: '#40CFFF', changing: '#006680', decommissioned: '#2a2a3a' },
+      red:    { current: '#FF1744', new: '#FF5252', changing: '#800020', decommissioned: '#2a2a3a' },
+      orange: { current: '#FF6600', new: '#FF8C1A', changing: '#803300', decommissioned: '#2a2a3a' },
+      purple: { current: '#BF00FF', new: '#D966FF', changing: '#600080', decommissioned: '#2a2a3a' },
+      grey:   { current: '#B0C8D8', new: '#C8DDE8', changing: '#6A8899', decommissioned: '#2a2a3a' },
+      yellow: { current: '#FFD700', new: '#FFE54D', changing: '#806B00', decommissioned: '#2a2a3a' },
+      cyan:   { current: '#00FFFF', new: '#66FFFF', changing: '#008080', decommissioned: '#2a2a3a' },
+      pink:   { current: '#FF69B4', new: '#FF99CC', changing: '#993366', decommissioned: '#2a2a3a' },
+      teal:   { current: '#40E0D0', new: '#7FFFEE', changing: '#207068', decommissioned: '#2a2a3a' },
     },
     metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
     group:   { fill: '#181830', stroke: '#414868', label: '#ffffff' },
@@ -255,14 +330,17 @@ const tokyo: Theme = {
     connStroke:   '#7c6f9f',
     labelText:    '#ffffff',
     glow:         true,
-    roles: {
-      master:    '#00BFFF',
-      replica:   '#005F99',
-      derived:   '#00FF7F',
-      aggregate: '#BF00FF',
-      golden:    '#FFD700',
-      reference: '#708090',
-      consumer:  '#3A3A5C',
+    palette: {
+      green:  { current: '#00FF7F', new: '#40FFAA', changing: '#007A3D', decommissioned: '#2a2a3a' },
+      blue:   { current: '#00BFFF', new: '#40CFFF', changing: '#006680', decommissioned: '#2a2a3a' },
+      red:    { current: '#FF1744', new: '#FF5252', changing: '#800020', decommissioned: '#2a2a3a' },
+      orange: { current: '#FF6600', new: '#FF8C1A', changing: '#803300', decommissioned: '#2a2a3a' },
+      purple: { current: '#BF00FF', new: '#D966FF', changing: '#600080', decommissioned: '#2a2a3a' },
+      grey:   { current: '#B0C8D8', new: '#C8DDE8', changing: '#6A8899', decommissioned: '#2a2a3a' },
+      yellow: { current: '#FFD700', new: '#FFE54D', changing: '#806B00', decommissioned: '#2a2a3a' },
+      cyan:   { current: '#00FFFF', new: '#66FFFF', changing: '#008080', decommissioned: '#2a2a3a' },
+      pink:   { current: '#FF69B4', new: '#FF99CC', changing: '#993366', decommissioned: '#2a2a3a' },
+      teal:   { current: '#40E0D0', new: '#7FFFEE', changing: '#207068', decommissioned: '#2a2a3a' },
     },
     metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
     group:   { fill: '#181830', stroke: '#414868', label: '#ffffff' },
@@ -277,6 +355,18 @@ const tokyo: Theme = {
     refLabelText:   '#e2e0ff',
     stride: { S: '#FF1744', T: '#FF6600', R: '#FFD700', I: '#BF00FF', D: '#00BFFF', E: '#00FF7F' },
     metaBox: { fill: '#0a0a10', stroke: '#9580ff', text: '#e2e0ff' },
+    palette: {
+      green:  { current: '#00FF7F', new: '#40FFAA', changing: '#007A3D', decommissioned: '#2a2a3a' },
+      blue:   { current: '#00BFFF', new: '#40CFFF', changing: '#006680', decommissioned: '#2a2a3a' },
+      red:    { current: '#FF1744', new: '#FF5252', changing: '#800020', decommissioned: '#2a2a3a' },
+      orange: { current: '#FF6600', new: '#FF8C1A', changing: '#803300', decommissioned: '#2a2a3a' },
+      purple: { current: '#BF00FF', new: '#D966FF', changing: '#600080', decommissioned: '#2a2a3a' },
+      grey:   { current: '#B0C8D8', new: '#C8DDE8', changing: '#6A8899', decommissioned: '#2a2a3a' },
+      yellow: { current: '#FFD700', new: '#FFE54D', changing: '#806B00', decommissioned: '#2a2a3a' },
+      cyan:   { current: '#00FFFF', new: '#66FFFF', changing: '#008080', decommissioned: '#2a2a3a' },
+      pink:   { current: '#FF69B4', new: '#FF99CC', changing: '#993366', decommissioned: '#2a2a3a' },
+      teal:   { current: '#40E0D0', new: '#7FFFEE', changing: '#207068', decommissioned: '#2a2a3a' },
+    },
   },
 };
 

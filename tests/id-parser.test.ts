@@ -2,6 +2,17 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '../src/parser';
 import type { IDModel } from '../src/types';
 
+// Helper to create DSL with @location-types block
+const withLocationTypes = (body: string) => `@type id
+@location-types
+  aws orange
+  azure blue
+  gcp green
+  oracle red
+  on-prem grey
+
+${body}`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Positive tests
 // ─────────────────────────────────────────────────────────────────────────────
@@ -9,53 +20,51 @@ import type { IDModel } from '../src/types';
 describe('id-parser — positive tests', () => {
 
   it('dispatches @type id to the ID parser', () => {
-    const { model, errors } = parse('@type id\nsystem Foo [aws]');
+    const { model, errors } = parse(withLocationTypes('system Foo [aws]'));
     expect(errors).toHaveLength(0);
     expect(model).not.toBeNull();
     expect(model!.meta.diagramType).toBe('id');
   });
 
   it('parses a system element', () => {
-    const { model, errors } = parse('@type id\nsystem OrderSvc [aws]');
+    const { model, errors } = parse(withLocationTypes('system OrderSvc [aws]'));
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
     expect(id.elements).toHaveLength(1);
-    expect(id.elements[0]).toMatchObject({ kind: 'system', id: 'OrderSvc', platform: 'aws', state: 'current' });
+    expect(id.elements[0]).toMatchObject({ kind: 'system', id: 'OrderSvc', locationType: 'aws', state: 'current' });
   });
 
   it('parses a database element', () => {
-    const { model, errors } = parse('@type id\ndatabase CustomerDB [on-prem]');
+    const { model, errors } = parse(withLocationTypes('database CustomerDB [on-prem]'));
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
-    expect(id.elements[0]).toMatchObject({ kind: 'database', platform: 'on-prem' });
+    expect(id.elements[0]).toMatchObject({ kind: 'database', locationType: 'on-prem' });
   });
 
   it('parses a queue element', () => {
-    const { model, errors } = parse('@type id\nqueue OrderQueue [aws]');
+    const { model, errors } = parse(withLocationTypes('queue OrderQueue [aws]'));
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
-    expect(id.elements[0]).toMatchObject({ kind: 'queue', platform: 'aws' });
+    expect(id.elements[0]).toMatchObject({ kind: 'queue', locationType: 'aws' });
   });
 
-  it('parses all five platforms', () => {
-    const dsl = `@type id
-system A [aws]
+  it('parses all five location-types', () => {
+    const dsl = withLocationTypes(`system A [aws]
 system B [azure]
 system C [on-prem]
 system D [gcp]
-system E [oracle]`;
+system E [oracle]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
-    expect(id.elements.map(e => e.platform)).toEqual(['aws', 'azure', 'on-prem', 'gcp', 'oracle']);
+    expect(id.elements.map(e => e.locationType)).toEqual(['aws', 'azure', 'on-prem', 'gcp', 'oracle']);
   });
 
   it('parses element states', () => {
-    const dsl = `@type id
-system A [aws] [new]
+    const dsl = withLocationTypes(`system A [aws] [new]
 system B [azure] [changing]
 system C [gcp] [decommissioned]
-system D [oracle]`;
+system D [oracle]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -66,10 +75,9 @@ system D [oracle]`;
   });
 
   it('defaults label placement: system=inside, database=below, queue=below', () => {
-    const dsl = `@type id
-system A [aws]
+    const dsl = withLocationTypes(`system A [aws]
 database B [aws]
-queue C [aws]`;
+queue C [aws]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -79,9 +87,8 @@ queue C [aws]`;
   });
 
   it('respects [placement:inside] and [placement:below] overrides', () => {
-    const dsl = `@type id
-database A [aws] [placement:inside]
-system B [azure] [placement:below]`;
+    const dsl = withLocationTypes(`database A [aws] [placement:inside]
+system B [azure] [placement:below]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -90,8 +97,7 @@ system B [azure] [placement:below]`;
   });
 
   it('supports [label:"text"] for display name separate from id', () => {
-    const dsl = `@type id
-system MobileApp [azure] [label:"Mobile Application"]`;
+    const dsl = withLocationTypes('system MobileApp [azure] [label:"Mobile Application"]');
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -100,10 +106,9 @@ system MobileApp [azure] [label:"Mobile Application"]`;
   });
 
   it('parses a unidirectional connect', () => {
-    const dsl = `@type id
-system A [aws]
+    const dsl = withLocationTypes(`system A [aws]
 system B [azure]
-connect A -> B : REST`;
+connect A -> B : REST`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -111,10 +116,9 @@ connect A -> B : REST`;
   });
 
   it('parses a bidirectional connect', () => {
-    const dsl = `@type id
-system A [aws]
+    const dsl = withLocationTypes(`system A [aws]
 system B [azure]
-connect A <-> B : gRPC`;
+connect A <-> B : gRPC`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -122,20 +126,18 @@ connect A <-> B : gRPC`;
   });
 
   it('parses @position directives', () => {
-    const dsl = `@type id
-system A [aws]
-@position A 200 300`;
+    const dsl = withLocationTypes(`system A [aws]
+@position A 200 300`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect(model!.savedPositions['A']).toEqual({ x: 200, y: 300 });
   });
 
   it('parses group with members', () => {
-    const dsl = `@type id
-group g1 My Group [label:upper-left]
+    const dsl = withLocationTypes(`group g1 My Group [corner:upper-left]
   system A [aws]
   system B [azure]
-end`;
+end`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -147,10 +149,9 @@ end`;
   });
 
   it('defaults group label corner to upper-right', () => {
-    const dsl = `@type id
-group g1 Test
+    const dsl = withLocationTypes(`group g1 Test
   system A [aws]
-end`;
+end`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
@@ -169,6 +170,24 @@ end`;
     expect(model!.meta.author).toBe('Jane');
     expect(model!.meta.version).toBe('2.0');
     expect(model!.meta.date).toBe('2026-01-01');
+  });
+
+  it('parses @location-types block', () => {
+    const dsl = `@type id
+@location-types
+  legacy green
+  cloud blue
+  partner orange
+
+system A [legacy]
+system B [cloud]`;
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    const id = model as IDModel;
+    expect(id.meta.locationTypes).toHaveLength(3);
+    expect(id.meta.locationTypes![0]).toEqual({ name: 'legacy', colour: 'green' });
+    expect(id.elements[0].locationType).toBe('legacy');
+    expect(id.elements[1].locationType).toBe('cloud');
   });
 
   it('parses integration_example.id fixture without errors', async () => {
@@ -195,86 +214,79 @@ end`;
 describe('id-parser — negative tests', () => {
 
   it('reports system with no id', () => {
-    const { errors } = parse('@type id\nsystem');
+    const { errors } = parse(withLocationTypes('system'));
     expect(errors.some(e => e.message.match(/requires an id/i))).toBe(true);
   });
 
-  it('reports element with unknown platform', () => {
-    const { errors } = parse('@type id\nsystem Foo [mainframe]');
+  it('reports element with unknown location-type', () => {
+    const { errors } = parse(withLocationTypes('system Foo [mainframe]'));
     expect(errors.some(e => e.message.match(/unknown qualifier/i))).toBe(true);
   });
 
-  it('reports element with missing platform', () => {
-    const { errors } = parse('@type id\nsystem Foo');
-    expect(errors.some(e => e.message.match(/requires a platform/i))).toBe(true);
+  it('reports element with missing location-type', () => {
+    const { errors } = parse(withLocationTypes('system Foo'));
+    expect(errors.some(e => e.message.match(/requires a location-type/i))).toBe(true);
   });
 
   it('reports connect with unknown from-id', () => {
-    const dsl = `@type id
-system B [aws]
-connect Ghost -> B : REST`;
+    const dsl = withLocationTypes(`system B [aws]
+connect Ghost -> B : REST`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/unknown id.*Ghost/i))).toBe(true);
   });
 
   it('reports connect with unknown to-id', () => {
-    const dsl = `@type id
-system A [aws]
-connect A -> Ghost : REST`;
+    const dsl = withLocationTypes(`system A [aws]
+connect A -> Ghost : REST`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/unknown id.*Ghost/i))).toBe(true);
   });
 
   it('reports connect missing arrow', () => {
-    const dsl = `@type id
-system A [aws]
+    const dsl = withLocationTypes(`system A [aws]
 system B [azure]
-connect A B : REST`;
+connect A B : REST`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/->|<->/i))).toBe(true);
   });
 
   it('reports connect missing protocol', () => {
-    const dsl = `@type id
-system A [aws]
+    const dsl = withLocationTypes(`system A [aws]
 system B [azure]
-connect A -> B`;
+connect A -> B`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/protocol/i))).toBe(true);
   });
 
   it('reports nested group', () => {
-    const dsl = `@type id
-group outer Outer
+    const dsl = withLocationTypes(`group outer Outer
   group inner Inner
     system A [aws]
   end
-end`;
+end`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/nest/i))).toBe(true);
   });
 
   it('reports end without group', () => {
-    const { errors } = parse('@type id\nend');
+    const { errors } = parse(withLocationTypes('end'));
     expect(errors.some(e => e.message.match(/"end" without/i))).toBe(true);
   });
 
   it('reports unclosed group', () => {
-    const dsl = `@type id
-group g1 Test
-  system A [aws]`;
+    const dsl = withLocationTypes(`group g1 Test
+  system A [aws]`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/never closed/i))).toBe(true);
   });
 
   it('reports element in multiple groups', () => {
-    const dsl = `@type id
-group g1 First
+    const dsl = withLocationTypes(`group g1 First
   system A [aws]
 end
 group g2 Second
   system A [aws]
-end`;
+end`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/appears in both group/i))).toBe(true);
   });
@@ -282,5 +294,15 @@ end`;
   it('reports unknown @orientation value', () => {
     const { errors } = parse('@type id\n@orientation diagonal');
     expect(errors.some(e => e.message.match(/landscape or portrait/i))).toBe(true);
+  });
+
+  it('reports invalid palette colour in @location-types', () => {
+    const dsl = `@type id
+@location-types
+  invalid neon-magenta
+
+system A [invalid]`;
+    const { errors } = parse(dsl);
+    expect(errors.some(e => e.message.match(/unknown palette colour/i))).toBe(true);
   });
 });

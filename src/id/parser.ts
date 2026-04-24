@@ -1,16 +1,15 @@
 import type {
   IDModel, IDElement, IDConnection, IDGroup,
-  Platform, IDState, Direction, PlacementPos, LabelCorner,
+  IDState, Direction, PlacementPos, LabelCorner,
 } from './types';
-import type { ModelMeta, Position, ParseError, ParseResult } from '../types';
-import { THEMES } from '../themes';
+import type { ModelMeta, Position, ParseError, ParseResult, LocationType } from '../types';
+import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-const VALID_PLATFORMS: readonly Platform[] = ['aws', 'azure', 'on-prem', 'gcp', 'oracle'];
-const VALID_STATES:    readonly IDState[]  = ['new', 'changing', 'decommissioned'];
+const VALID_STATES: readonly IDState[] = ['new', 'changing', 'decommissioned'];
 
 function defaultPlacement(kind: IDElement['kind']): PlacementPos {
   return kind === 'system' ? 'inside' : 'below';
@@ -26,11 +25,40 @@ export function parseID(lines: string[]): ParseResult {
   const connections: IDConnection[] = [];
   const groups:      IDGroup[]      = [];
   const savedPositions: Record<string, Position> = {};
+  const locationTypes: LocationType[] = [];
   let currentGroup: IDGroup | null = null;
+  let inLocationTypesBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
-    const line    = lines[i].trim();
+    const rawLine = lines[i];
+    const line    = rawLine.trim();
+
+    // Handle @location-types block content
+    if (inLocationTypesBlock) {
+      if (line === '') {
+        inLocationTypesBlock = false;
+        continue;
+      }
+      // Indented line = block content
+      if (rawLine.startsWith('  ') || rawLine.startsWith('\t')) {
+        const parts = line.split(/\s+/);
+        if (parts.length !== 2) {
+          errors.push({ line: lineNum, message: 'location-type requires: <name> <colour>' });
+          continue;
+        }
+        const [name, colour] = parts;
+        if (!(VALID_PALETTE_COLOURS as readonly string[]).includes(colour.toLowerCase())) {
+          errors.push({ line: lineNum, message: `Unknown palette colour: "${colour}". Valid: ${VALID_PALETTE_COLOURS.join(', ')}` });
+          continue;
+        }
+        locationTypes.push({ name, colour: colour.toLowerCase() });
+        continue;
+      } else {
+        // Non-indented non-empty line ends block, fall through to process normally
+        inLocationTypesBlock = false;
+      }
+    }
 
     if (line === '' || line.startsWith('#')) continue;
 
@@ -46,6 +74,12 @@ export function parseID(lines: string[]): ParseResult {
         case '@version': meta.version = value; break;
         case '@date':    meta.date    = value; break;
         case '@author':  meta.author  = value; break;
+
+        case '@location-types': {
+          inLocationTypesBlock = true;
+          break;
+        }
+
         case '@theme': {
           if (!THEMES[value]) {
             errors.push({ line: lineNum, message: `Unknown theme: "${value}". Available: ${Object.keys(THEMES).join(', ')}` });
@@ -140,15 +174,18 @@ export function parseID(lines: string[]): ParseResult {
         // Extract all [...] tokens — preserve case for label: value
         const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
 
-        let platform:  Platform     | undefined;
+        // Build lookup set from declared location-types
+        const knownLocationTypes = new Set(locationTypes.map(lt => lt.name.toLowerCase()));
+
+        let locationType: string | undefined;
         let state:     IDState      = 'current';
         let placement: PlacementPos = defaultPlacement(kind);
         let label:     string       = id;
 
         for (const b of brackets) {
           const bLower = b.toLowerCase();
-          if ((VALID_PLATFORMS as readonly string[]).includes(bLower)) {
-            platform = bLower as Platform;
+          if (knownLocationTypes.has(bLower)) {
+            locationType = locationTypes.find(lt => lt.name.toLowerCase() === bLower)!.name;
           } else if ((VALID_STATES as readonly string[]).includes(bLower)) {
             state = bLower as IDState;
           } else if (b.startsWith('label:')) {
@@ -158,16 +195,18 @@ export function parseID(lines: string[]): ParseResult {
           } else if (bLower === 'placement:below') {
             placement = 'below';
           } else {
-            errors.push({ line: lineNum, message: `Unknown qualifier: [${b}]. Valid platforms: ${VALID_PLATFORMS.join(', ')}` });
+            const validTypes = locationTypes.map(lt => lt.name).join(', ') || 'none defined — add @location-types block';
+            errors.push({ line: lineNum, message: `Unknown qualifier: [${b}]. Valid location-types: ${validTypes}` });
           }
         }
 
-        if (!platform) {
-          errors.push({ line: lineNum, message: `${keyword} "${id}" requires a platform: [${VALID_PLATFORMS.join('], [')}]` });
+        if (!locationType) {
+          const validTypes = locationTypes.map(lt => lt.name).join('], [') || 'none defined — add @location-types block';
+          errors.push({ line: lineNum, message: `${keyword} "${id}" requires a location-type: [${validTypes}]` });
           break;
         }
 
-        elements.push({ kind, id, label, platform, state, placement, x: 0, y: 0 });
+        elements.push({ kind, id, label, locationType, state, placement, x: 0, y: 0 });
         if (currentGroup) currentGroup.members.push(id);
         break;
       }
@@ -285,6 +324,11 @@ export function parseID(lines: string[]): ParseResult {
         memberGroupMap.set(memberId, group.id);
       }
     }
+  }
+
+  // Store location-types in meta
+  if (locationTypes.length > 0) {
+    meta.locationTypes = locationTypes;
   }
 
   const model: IDModel = { meta, elements, connections, groups, savedPositions };

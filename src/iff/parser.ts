@@ -1,13 +1,9 @@
 import type {
   IFFModel, IFFStore, IFFLink, IFFGroup,
-  IFFRole, IFFRelationship, IFFState, IFFLabelCorner,
+  IFFRelationship, IFFState, IFFLabelCorner,
 } from './types';
-import type { ModelMeta, Position, ParseError, ParseResult } from '../types';
-import { THEMES } from '../themes';
-
-const VALID_ROLES: readonly IFFRole[] = [
-  'master', 'replica', 'derived', 'aggregate', 'golden', 'reference', 'consumer',
-];
+import type { ModelMeta, Position, ParseError, ParseResult, LocationType } from '../types';
+import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 
 const VALID_RELATIONSHIPS: readonly IFFRelationship[] = [
   'replicate', 'publish', 'ingest', 'derive', 'aggregate', 'enrich', 'merge', 'serve',
@@ -29,11 +25,40 @@ export function parseIFF(lines: string[]): ParseResult {
   const links:          IFFLink[]   = [];
   const groups:         IFFGroup[]  = [];
   const savedPositions: Record<string, Position> = {};
+  const locationTypes: LocationType[] = [];
   let currentGroup: IFFGroup | null = null;
+  let inLocationTypesBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
-    const line    = lines[i].trim();
+    const rawLine = lines[i];
+    const line    = rawLine.trim();
+
+    // Handle @location-types block content
+    if (inLocationTypesBlock) {
+      if (line === '') {
+        inLocationTypesBlock = false;
+        continue;
+      }
+      // Indented line = block content
+      if (rawLine.startsWith('  ') || rawLine.startsWith('\t')) {
+        const parts = line.split(/\s+/);
+        if (parts.length !== 2) {
+          errors.push({ line: lineNum, message: 'location-type requires: <name> <colour>' });
+          continue;
+        }
+        const [name, colour] = parts;
+        if (!(VALID_PALETTE_COLOURS as readonly string[]).includes(colour.toLowerCase())) {
+          errors.push({ line: lineNum, message: `Unknown palette colour: "${colour}". Valid: ${VALID_PALETTE_COLOURS.join(', ')}` });
+          continue;
+        }
+        locationTypes.push({ name, colour: colour.toLowerCase() });
+        continue;
+      } else {
+        // Non-indented non-empty line ends block, fall through to process normally
+        inLocationTypesBlock = false;
+      }
+    }
 
     if (line === '' || line.startsWith('#')) continue;
 
@@ -49,6 +74,12 @@ export function parseIFF(lines: string[]): ParseResult {
         case '@version': meta.version = value; break;
         case '@date':    meta.date    = value; break;
         case '@author':  meta.author  = value; break;
+
+        case '@location-types': {
+          inLocationTypesBlock = true;
+          break;
+        }
+
         case '@theme': {
           if (!THEMES[value]) {
             errors.push({ line: lineNum, message: `Unknown theme: "${value}". Available: ${Object.keys(THEMES).join(', ')}` });
@@ -122,7 +153,7 @@ export function parseIFF(lines: string[]): ParseResult {
 
     switch (keyword) {
 
-      // store <id> [<role>] [<state>] [label:"..."]
+      // store <id> [<locationType>] [<state>] [label:"..."]
       case 'store': {
         const bracketStart = rest.indexOf('[');
         const id = (bracketStart === -1 ? rest : rest.slice(0, bracketStart)).trim();
@@ -134,30 +165,35 @@ export function parseIFF(lines: string[]): ParseResult {
 
         const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
 
-        let role:  IFFRole  | undefined;
+        // Build lookup set from declared location-types
+        const knownLocationTypes = new Set(locationTypes.map(lt => lt.name.toLowerCase()));
+
+        let locationType: string | undefined;
         let state: IFFState = 'current';
         let label: string   = id;
 
         for (const b of brackets) {
           const bLower = b.toLowerCase();
-          if ((VALID_ROLES as readonly string[]).includes(bLower)) {
-            role = bLower as IFFRole;
+          if (knownLocationTypes.has(bLower)) {
+            locationType = locationTypes.find(lt => lt.name.toLowerCase() === bLower)!.name;
           } else if ((VALID_STATES as readonly string[]).includes(bLower)) {
             state = bLower as IFFState;
           } else if (b.startsWith('label:')) {
             // label:"Human Readable Label" — strip quotes
             label = b.slice(6).replace(/^["']|["']$/g, '').trim();
           } else {
-            errors.push({ line: lineNum, message: `Unknown qualifier: [${b}]. Valid roles: ${VALID_ROLES.join(', ')}` });
+            const validTypes = locationTypes.map(lt => lt.name).join(', ') || 'none defined — add @location-types block';
+            errors.push({ line: lineNum, message: `Unknown qualifier: [${b}]. Valid location-types: ${validTypes}` });
           }
         }
 
-        if (!role) {
-          errors.push({ line: lineNum, message: `store "${id}" requires a role: [${VALID_ROLES.join('], [')}]` });
+        if (!locationType) {
+          const validTypes = locationTypes.map(lt => lt.name).join('], [') || 'none defined — add @location-types block';
+          errors.push({ line: lineNum, message: `store "${id}" requires a location-type: [${validTypes}]` });
           break;
         }
 
-        stores.push({ kind: 'store', id, label, role, state, x: 0, y: 0 });
+        stores.push({ kind: 'store', id, label, locationType, state, x: 0, y: 0 });
         if (currentGroup) currentGroup.members.push(id);
         break;
       }
@@ -198,7 +234,7 @@ export function parseIFF(lines: string[]): ParseResult {
         break;
       }
 
-      // group <id> <label> [label:corner] ... end
+      // group <id> <label> [corner:*] ... end
       case 'group': {
         if (currentGroup) {
           errors.push({ line: lineNum, message: `Cannot nest groups — already inside group "${currentGroup.id}"` });
@@ -268,6 +304,11 @@ export function parseIFF(lines: string[]): ParseResult {
         memberGroupMap.set(memberId, group.id);
       }
     }
+  }
+
+  // Store location-types in meta
+  if (locationTypes.length > 0) {
+    meta.locationTypes = locationTypes;
   }
 
   const model: IFFModel = { meta, stores, links, groups, savedPositions };

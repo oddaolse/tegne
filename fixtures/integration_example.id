@@ -1,5 +1,11 @@
 @type id
 
+@location-types
+  aws orange
+  azure blue
+  gcp green
+  on-prem grey
+
 system   WebApp      [aws]
 system   ApiSvc      [azure]
 system   AuthSvc     [gcp]

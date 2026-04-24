@@ -2,17 +2,23 @@
 
 export type DiagramType = 'sd' | 'id' | 'infoflow' | 'tm';
 
+export interface LocationType {
+  name:   string;   // e.g. "legacy", "cloud", "SaaS"
+  colour: string;   // base colour name: "green", "blue", "red", etc.
+}
+
 export interface ModelMeta {
-  diagramType?:  DiagramType;
-  name?:         string;
-  version?:      string;
-  date:          string;
-  author?:       string;
-  theme?:        string;
-  orientation?:  'landscape' | 'portrait';
-  size?:         'a4' | 'a3' | 'a2' | 'a1' | 'a0';
-  legend?:       boolean;   // show legend box (default: true)
-  showIds?:      boolean;   // overlay element id badges (default: false)
+  diagramType?:    DiagramType;
+  name?:           string;
+  version?:        string;
+  date:            string;
+  author?:         string;
+  theme?:          string;
+  orientation?:    'landscape' | 'portrait';
+  size?:           'a4' | 'a3' | 'a2' | 'a1' | 'a0';
+  legend?:         boolean;         // show legend box (default: true)
+  showIds?:        boolean;         // overlay element id badges (default: false)
+  locationTypes?:  LocationType[];  // user-defined location-type → colour mappings
 }
 
 export interface Position { x: number; y: number; }
@@ -42,13 +48,13 @@ export type {
 } from './sd/types';
 
 export type {
-  Platform, IDState, Direction, PlacementPos, LabelCorner,
+  IDState, Direction, PlacementPos, LabelCorner,
   IDElement, IDConnection, IDGroup,
   IDModel,
 } from './id/types';
 
 export type {
-  IFFRole, IFFRelationship, IFFState, IFFLabelCorner,
+  IFFRelationship, IFFState, IFFLabelCorner,
   IFFStore, IFFLink, IFFGroup,
   IFFModel,
 } from './iff/types';

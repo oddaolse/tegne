@@ -7,24 +7,31 @@
 @size        a3
 @orientation landscape
 
-group frontend Frontend [label:upper-left]
+@location-types
+  aws orange
+  azure blue
+  gcp green
+  oracle red
+  on-prem grey
+
+group frontend Frontend [corner:upper-left]
 system   web_app              [aws]       [changing]
 system   mobile_app           [azure]     [new]
 end
 
-group backend Backend Services [label:upper-right]
+group backend Backend Services [corner:upper-right]
 system   order_service        [aws]
 system   payment_service      [azure]
 system   notification_service [gcp]       [new]
 end
 
-group data Data Layer [label:lower-right]
+group data Data Layer [corner:lower-right]
 database order_db             [oracle]
 database payment_db           [on-prem]   [placement:inside]
 database analytics_db         [gcp]       [new]
 end
 
-group messaging Messaging [label:lower-left]
+group messaging Messaging [corner:lower-left]
 queue    message_queue        [aws]
 queue    notification_queue   [azure]
 end
@@ -45,3 +52,17 @@ connect  payment_service     ->   payment_db           : JDBC
 connect  order_service       ->   analytics_db         : ETL
 connect  legacy_auth         ->   web_app              : SOAP
 connect  fraud_detect        ->   payment_service      : REST
+
+@position web_app 85 410
+@position mobile_app 359 411
+@position order_service 406 701
+@position payment_service 645 699
+@position notification_service 865 699
+@position order_db 561 962
+@position payment_db 745 966
+@position analytics_db 377 961
+@position message_queue 614 467
+@position notification_queue 770 326
+@position legacy_auth 372 260
+@position fraud_detect 1042 974
+@position __meta__ 24 1015

@@ -2,17 +2,16 @@ import type { ModelMeta, Position } from '../types';
 
 export type { Position } from '../types';  // re-export for convenience within iff/
 
-export type IFFRole         = 'master' | 'replica' | 'derived' | 'aggregate' | 'golden' | 'reference' | 'consumer';
 export type IFFRelationship = 'replicate' | 'publish' | 'ingest' | 'derive' | 'aggregate' | 'enrich' | 'merge' | 'serve';
 export type IFFState        = 'current' | 'new' | 'changing' | 'decommissioned';
 export type IFFLabelCorner  = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
 
 export interface IFFStore extends Position {
-  kind:  'store';
-  id:    string;
-  label: string;
-  role:  IFFRole;
-  state: IFFState;
+  kind:         'store';
+  id:           string;
+  label:        string;
+  locationType: string;
+  state:        IFFState;
 }
 
 export interface IFFLink {

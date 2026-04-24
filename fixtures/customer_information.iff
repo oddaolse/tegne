@@ -6,6 +6,15 @@
 @size     a4
 @theme    dark
 
+@location-types
+  master blue
+  replica cyan
+  derived green
+  aggregate purple
+  golden orange
+  reference grey
+  consumer grey
+
 # Customer Domain group
 group customer_domain Customer Domain [corner:upper-left]
 store cis         [master]    [label:"Customer Information System"]
