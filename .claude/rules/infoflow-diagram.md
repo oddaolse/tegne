@@ -5,10 +5,12 @@ Use `.claude/specs/information-flow-diagram.md` as the authoritative syntax and 
 ## Parser
 
 - Keep the parser in `src/iff/parser.ts`.
-- Parse stores, processes, links, groups, metadata, palettes, and saved positions line by line.
+- Parse stores, processes, connections, groups, metadata, palettes, and saved positions line by line.
 - Return line-aware `ParseError` entries for invalid syntax and references.
 - Preserve compatibility for existing `.iff` fixtures unless a migration is explicitly required.
-- Keep link endpoint validation node-based: stores and processes are both valid endpoints.
+- Use `connect` for new relationship declarations.
+- Preserve `link` as a legacy alias for backward compatibility.
+- Keep connection endpoint validation node-based: stores and processes are both valid endpoints.
 
 ## Model
 
@@ -21,8 +23,8 @@ Use `.claude/specs/information-flow-diagram.md` as the authoritative syntax and 
 
 - Layout all nodes, not only stores.
 - Honour saved `@position` values for stores, processes, `__meta__`, and `__legend__`.
-- Dragging a node must redraw affected links.
-- Dragging a group must move every member node and redraw affected links.
+- Dragging a node must redraw affected connections.
+- Dragging a group must move every member node and redraw affected connections.
 
 ## Rendering
 

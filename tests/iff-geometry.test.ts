@@ -57,7 +57,7 @@ describe('iff geometry helpers', () => {
     expect(iffFlowStyle(undefined, undefined)).toEqual({ dashArray: null, strokeWidth: 1.5 });
   });
 
-  it('maps link direction to SVG marker placement', () => {
+  it('maps connection direction to SVG marker placement', () => {
     expect(iffLinkMarkers('unidirectional')).toEqual({ markerStart: null, markerEnd: 'url(#iff-arrow)' });
     expect(iffLinkMarkers('bidirectional')).toEqual({ markerStart: 'url(#iff-arrow)', markerEnd: 'url(#iff-arrow)' });
   });

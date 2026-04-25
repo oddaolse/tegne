@@ -122,7 +122,7 @@ system Api [cloud]`;
 
 store cis [master]
 process syncer [SystemA]
-link cis -> syncer : query [flow:sync]`;
+connect cis -> syncer : query [flow:sync]`;
     const common = `@type infoflow
 @location-types
   master blue

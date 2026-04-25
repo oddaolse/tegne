@@ -25,7 +25,7 @@ describe('iff @include', () => {
 
 store cis [master]
 process syncer [SystemA]
-link cis -> syncer : query [flow:sync]`;
+connect cis -> syncer : query [flow:sync]`;
 
     const { model, errors } = parse(dsl, { includeFiles: new Map([['common.iff', commonIff]]) });
 

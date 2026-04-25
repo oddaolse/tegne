@@ -8,7 +8,7 @@ import type {
 import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 
-const POSITIONAL_KEYWORDS_IFF = new Set(['store', 'process', 'link', 'group', 'end']);
+const POSITIONAL_KEYWORDS_IFF = new Set(['store', 'process', 'connect', 'link', 'group', 'end']);
 
 const VALID_RELATIONSHIPS: readonly IFFRelationship[] = [
   'replicate', 'publish', 'subscribe', 'ingest', 'derive', 'aggregate', 'enrich', 'merge', 'serve', 'query',
@@ -156,11 +156,11 @@ function parseLinkEndpointPart(
   }));
 
   if (matches.length === 0) {
-    errors.push({ line: lineNum, message: 'link requires one of "->", "<-", or "<->" between from and to' });
+    errors.push({ line: lineNum, message: 'connection requires one of "->", "<-", or "<->" between from and to' });
     return null;
   }
   if (matches.length > 1) {
-    errors.push({ line: lineNum, message: 'link must contain exactly one direction operator: "->", "<-", or "<->"' });
+    errors.push({ line: lineNum, message: 'connection must contain exactly one direction operator: "->", "<-", or "<->"' });
     return null;
   }
 
@@ -431,6 +431,7 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
         break;
       }
 
+      case 'connect':
       case 'link': {
         const endpointPart = parseLinkEndpointPart(rest, lineNum, errors);
         if (!endpointPart) break;
@@ -438,7 +439,7 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
         const { from, to, direction, afterArrow } = endpointPart;
         const colonIdx = afterArrow.indexOf(':');
         if (colonIdx === -1) {
-          errors.push({ line: lineNum, message: 'link requires ":" before relationship' });
+          errors.push({ line: lineNum, message: 'connection requires ":" before relationship' });
           break;
         }
 
@@ -446,8 +447,8 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
         const bracketIdx = afterColon.indexOf('[');
         const relationship = (bracketIdx === -1 ? afterColon : afterColon.slice(0, bracketIdx)).trim().toLowerCase();
 
-        if (!from) { errors.push({ line: lineNum, message: 'link: missing source id' }); break; }
-        if (!to) { errors.push({ line: lineNum, message: 'link: missing target id' }); break; }
+        if (!from) { errors.push({ line: lineNum, message: 'connection: missing source id' }); break; }
+        if (!to) { errors.push({ line: lineNum, message: 'connection: missing target id' }); break; }
         if (!(VALID_RELATIONSHIPS as readonly string[]).includes(relationship)) {
           errors.push({ line: lineNum, message: `Unknown relationship: "${relationship}". Valid: ${VALID_RELATIONSHIPS.join(', ')}` });
           break;
@@ -536,10 +537,10 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
 
   for (const link of links) {
     if (!nodeIds.has(link.from)) {
-      errors.push({ line: 0, message: `link: unknown id "${link.from}"` });
+      errors.push({ line: 0, message: `connection: unknown id "${link.from}"` });
     }
     if (!nodeIds.has(link.to)) {
-      errors.push({ line: 0, message: `link: unknown id "${link.to}"` });
+      errors.push({ line: 0, message: `connection: unknown id "${link.to}"` });
     }
   }
 
@@ -548,7 +549,7 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
   for (const link of links) {
     if (!link.flowType || !link.flowTypeExplicit) continue;
     if (!flowTypeNames.has(link.flowType) && !defaultFlowTypes.has(link.flowType)) {
-      errors.push({ line: 0, message: `link "${link.id}" references unknown flow type "${link.flowType}"` });
+      errors.push({ line: 0, message: `connection "${link.id}" references unknown flow type "${link.flowType}"` });
     }
   }
 

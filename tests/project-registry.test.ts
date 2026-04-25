@@ -35,7 +35,7 @@ threat T1 [stride:S] api : "Spoofing"`],
 
 store cis [master]
 process syncer [SystemA]
-link cis -> syncer : query [flow:sync]`],
+connect cis -> syncer : query [flow:sync]`],
     ]);
 
     const registry = buildRegistry(files);

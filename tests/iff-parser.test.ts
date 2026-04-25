@@ -93,19 +93,19 @@ end`);
   it('parses query and subscribe relationships', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A -> B : query [flow:sync]
-link B -> A : subscribe [flow:async]`);
+connect A -> B : query [flow:sync]
+connect B -> A : subscribe [flow:async]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect((model as IFFModel).links.map(link => link.relationship)).toEqual(['query', 'subscribe']);
   });
 
-  it('parses all supported link direction operators', () => {
+  it('parses all supported connect direction operators', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A -> B : query
-link A <- B : serve
-link A <-> B : merge`);
+connect A -> B : query
+connect A <- B : serve
+connect A <-> B : merge`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect((model as IFFModel).links.map(link => ({
@@ -123,7 +123,7 @@ link A <-> B : merge`);
   it('parses explicit flow types on links', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A -> B : replicate [flow:batch]`);
+connect A -> B : replicate [flow:batch]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect((model as IFFModel).links[0].flowType).toBe('batch');
@@ -132,19 +132,34 @@ link A -> B : replicate [flow:batch]`);
   it('infers default flow types when omitted', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A -> B : query
-link B -> A : publish`);
+connect A -> B : query
+connect B -> A : publish`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect((model as IFFModel).links.map(link => link.flowType)).toEqual(['sync', 'async']);
   });
 
-  it('accepts legacy bare link qualifiers for backward compatibility', async () => {
+  it('accepts legacy bare connect qualifiers for backward compatibility', async () => {
     const dsl = (await import('../fixtures/customer_information.iff?raw')).default;
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const iff = model as IFFModel;
     expect(iff.links.some(link => link.flowType === 'kafka')).toBe(true);
+  });
+
+  it('accepts legacy link keyword for backward compatibility', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A -> B : query [flow:sync]`);
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    expect((model as IFFModel).links[0]).toMatchObject({
+      from: 'A',
+      to: 'B',
+      direction: 'unidirectional',
+      relationship: 'query',
+      flowType: 'sync',
+    });
   });
 
   it('parses @position directives for stores and processes', () => {
@@ -231,27 +246,27 @@ end`);
   it('reports unknown flow type', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A -> B : replicate [flow:realtime]`);
+connect A -> B : replicate [flow:realtime]`);
     const { errors } = parse(dsl);
     expect(errors.some(error => error.message.match(/unknown flow type/i))).toBe(true);
   });
 
-  it('reports link to unknown node id', () => {
+  it('reports connection to unknown node id', () => {
     const dsl = withInfoflowBlocks(`store A [master]
-link A -> Ghost : publish`);
+connect A -> Ghost : publish`);
     const { errors } = parse(dsl);
     expect(errors.some(error => error.message.match(/unknown id.*Ghost/i))).toBe(true);
   });
 
-  it('reports missing or ambiguous link direction operators', () => {
+  it('reports missing or ambiguous connection direction operators', () => {
     const missing = parse(withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A B : query`));
+connect A B : query`));
     expect(missing.errors.some(error => error.message.match(/"->", "<-", or "<->"/))).toBe(true);
 
     const ambiguous = parse(withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A -> B <- A : query`));
+connect A -> B <- A : query`));
     expect(ambiguous.errors.some(error => error.message.match(/exactly one direction operator/i))).toBe(true);
   });
 
