@@ -1,18 +1,144 @@
 import type {
-  IFFModel, IFFStore, IFFLink, IFFGroup,
+  IFFModel, IFFStore, IFFProcess, IFFNode, IFFLink, IFFGroup,
   IFFRelationship, IFFState, IFFLabelCorner,
 } from './types';
-import type { ModelMeta, Position, ParseError, ParseResult, LocationType } from '../types';
+import type {
+  FlowType, LocationType, ModelMeta, ParseError, ParseResult, Position, SystemType,
+} from '../types';
 import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 
 const VALID_RELATIONSHIPS: readonly IFFRelationship[] = [
-  'replicate', 'publish', 'ingest', 'derive', 'aggregate', 'enrich', 'merge', 'serve',
+  'replicate', 'publish', 'subscribe', 'ingest', 'derive', 'aggregate', 'enrich', 'merge', 'serve', 'query',
 ];
 
-const VALID_STATES: readonly IFFState[] = ['new', 'changing', 'decommissioned'];
+const VALID_STATES: readonly string[] = ['new', 'changing', 'decommissioned', 'unchanged'];
+
+function normalizeState(value: string): IFFState {
+  return value === 'unchanged' ? 'current' : value as IFFState;
+}
+const VALID_GROUP_CORNERS: readonly IFFLabelCorner[] = ['upper-left', 'upper-right', 'lower-left', 'lower-right'];
+
+type BlockKind = 'location-types' | 'systems' | 'flow-types';
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function parseBracketQualifiers(rest: string): string[] {
+  return [...rest.matchAll(/\[([^\]]+)\]/g)].map(match => match[1].trim());
+}
+
+function parseKeywordAndRest(line: string): { keyword: string; rest: string } {
+  const firstSpace = line.indexOf(' ');
+  return {
+    keyword: firstSpace === -1 ? line : line.slice(0, firstSpace),
+    rest: firstSpace === -1 ? '' : line.slice(firstSpace + 1).trim(),
+  };
+}
+
+function parseColourBlockLine(
+  line: string,
+  lineNum: number,
+  errors: ParseError[],
+): { name: string; colour: string } | null {
+  const parts = line.split(/\s+/);
+  if (parts.length !== 2) {
+    errors.push({ line: lineNum, message: 'Block entry requires: <name> <colour>' });
+    return null;
+  }
+
+  const [name, colour] = parts;
+  const normalizedColour = colour.toLowerCase();
+  if (!(VALID_PALETTE_COLOURS as readonly string[]).includes(normalizedColour)) {
+    errors.push({ line: lineNum, message: `Unknown palette colour: "${colour}". Valid: ${VALID_PALETTE_COLOURS.join(', ')}` });
+    return null;
+  }
+
+  return { name, colour: normalizedColour };
+}
+
+function parseFlowTypeBlockLine(
+  line: string,
+  lineNum: number,
+  errors: ParseError[],
+): FlowType | null {
+  const parts = line.split(/\s+/);
+  if (parts.length !== 2) {
+    errors.push({ line: lineNum, message: 'flow-type requires: <name> <style>' });
+    return null;
+  }
+
+  const [name, style] = parts;
+  return { name, style };
+}
+
+function parseGroupHeader(
+  rest: string,
+  lineNum: number,
+  errors: ParseError[],
+): { groupId: string; label: string; labelCorner: IFFLabelCorner; system?: string } | null {
+  const bracketStart = rest.indexOf('[');
+  const beforeBrackets = (bracketStart === -1 ? rest : rest.slice(0, bracketStart)).trim();
+  if (!beforeBrackets) {
+    errors.push({ line: lineNum, message: 'group requires an id' });
+    return null;
+  }
+
+  const idMatch = beforeBrackets.match(/^(\S+)(?:\s+(.+))?$/);
+  if (!idMatch) {
+    errors.push({ line: lineNum, message: 'group requires an id' });
+    return null;
+  }
+
+  const groupId = idMatch[1];
+  let label = idMatch[2]?.trim() ?? groupId;
+  if ((label.startsWith('"') && label.endsWith('"')) || (label.startsWith('\'') && label.endsWith('\''))) {
+    label = label.slice(1, -1);
+  }
+
+  let labelCorner: IFFLabelCorner = 'upper-right';
+  let system: string | undefined;
+  for (const qualifier of parseBracketQualifiers(rest)) {
+    const lower = qualifier.toLowerCase();
+    if (lower.startsWith('corner:')) {
+      const corner = lower.slice('corner:'.length) as IFFLabelCorner;
+      if (!VALID_GROUP_CORNERS.includes(corner)) {
+        errors.push({ line: lineNum, message: `Unknown group qualifier: [${qualifier}]. Valid: [corner:upper-left], [corner:upper-right], [corner:lower-left], [corner:lower-right], [system:<name>]` });
+        continue;
+      }
+      labelCorner = corner;
+      continue;
+    }
+
+    if (qualifier.startsWith('system:')) {
+      system = qualifier.slice('system:'.length).trim();
+      if (!system) {
+        errors.push({ line: lineNum, message: 'group [system:<name>] requires a system name' });
+      }
+      continue;
+    }
+
+    errors.push({ line: lineNum, message: `Unknown group qualifier: [${qualifier}]. Valid: [corner:upper-left], [corner:upper-right], [corner:lower-left], [corner:lower-right], [system:<name>]` });
+  }
+
+  return { groupId, label, labelCorner, system };
+}
+
+function inferFlowType(relationship: IFFRelationship): string | undefined {
+  switch (relationship) {
+    case 'replicate':
+    case 'publish':
+    case 'subscribe':
+    case 'ingest':
+    case 'derive':
+    case 'aggregate':
+    case 'merge':
+      return 'async';
+    case 'query':
+    case 'enrich':
+    case 'serve':
+      return 'sync';
+  }
 }
 
 export function parseIFF(lines: string[]): ParseResult {
@@ -21,65 +147,58 @@ export function parseIFF(lines: string[]): ParseResult {
 
   const errors: ParseError[] = [];
   const meta: ModelMeta = { date: todayISO(), diagramType: 'infoflow' };
-  const stores:         IFFStore[]  = [];
-  const links:          IFFLink[]   = [];
-  const groups:         IFFGroup[]  = [];
+  const stores: IFFStore[] = [];
+  const processes: IFFProcess[] = [];
+  const links: IFFLink[] = [];
+  const groups: IFFGroup[] = [];
   const savedPositions: Record<string, Position> = {};
   const locationTypes: LocationType[] = [];
+  const systemTypes: SystemType[] = [];
+  const flowTypes: FlowType[] = [];
   let currentGroup: IFFGroup | null = null;
-  let inLocationTypesBlock = false;
+  let activeBlock: BlockKind | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
     const rawLine = lines[i];
-    const line    = rawLine.trim();
+    const line = rawLine.trim();
 
-    // Handle @location-types block content
-    if (inLocationTypesBlock) {
+    if (activeBlock) {
       if (line === '') {
-        inLocationTypesBlock = false;
+        activeBlock = null;
         continue;
       }
-      // Indented line = block content
+
       if (rawLine.startsWith('  ') || rawLine.startsWith('\t')) {
-        const parts = line.split(/\s+/);
-        if (parts.length !== 2) {
-          errors.push({ line: lineNum, message: 'location-type requires: <name> <colour>' });
-          continue;
+        if (activeBlock === 'location-types') {
+          const entry = parseColourBlockLine(line, lineNum, errors);
+          if (entry) locationTypes.push(entry);
+        } else if (activeBlock === 'systems') {
+          const entry = parseColourBlockLine(line, lineNum, errors);
+          if (entry) systemTypes.push(entry);
+        } else {
+          const entry = parseFlowTypeBlockLine(line, lineNum, errors);
+          if (entry) flowTypes.push(entry);
         }
-        const [name, colour] = parts;
-        if (!(VALID_PALETTE_COLOURS as readonly string[]).includes(colour.toLowerCase())) {
-          errors.push({ line: lineNum, message: `Unknown palette colour: "${colour}". Valid: ${VALID_PALETTE_COLOURS.join(', ')}` });
-          continue;
-        }
-        locationTypes.push({ name, colour: colour.toLowerCase() });
         continue;
-      } else {
-        // Non-indented non-empty line ends block, fall through to process normally
-        inLocationTypesBlock = false;
       }
+
+      activeBlock = null;
     }
 
     if (line === '' || line.startsWith('#')) continue;
 
-    // ── @ directives ─────────────────────────────────────────────────
     if (line.startsWith('@')) {
-      const spaceIdx = line.indexOf(' ');
-      const keyword  = spaceIdx === -1 ? line : line.slice(0, spaceIdx);
-      const value    = spaceIdx === -1 ? '' : line.slice(spaceIdx + 1).trim();
-
+      const { keyword, rest: value } = parseKeywordAndRest(line);
       switch (keyword) {
-        case '@type':    /* consumed by dispatcher */ break;
-        case '@name':    meta.name    = value; break;
+        case '@type':    break;
+        case '@name':    meta.name = value; break;
         case '@version': meta.version = value; break;
-        case '@date':    meta.date    = value; break;
-        case '@author':  meta.author  = value; break;
-
-        case '@location-types': {
-          inLocationTypesBlock = true;
-          break;
-        }
-
+        case '@date':    meta.date = value; break;
+        case '@author':  meta.author = value; break;
+        case '@location-types': activeBlock = 'location-types'; break;
+        case '@systems': activeBlock = 'systems'; break;
+        case '@flow-types': activeBlock = 'flow-types'; break;
         case '@theme': {
           if (!THEMES[value]) {
             errors.push({ line: lineNum, message: `Unknown theme: "${value}". Available: ${Object.keys(THEMES).join(', ')}` });
@@ -108,13 +227,14 @@ export function parseIFF(lines: string[]): ParseResult {
         case '@position': {
           const parts = value.split(/\s+/);
           if (parts.length !== 3) {
-            errors.push({ line: lineNum, message: `@position requires exactly: @position <id> <x> <y>` });
+            errors.push({ line: lineNum, message: '@position requires exactly: @position <id> <x> <y>' });
             break;
           }
           const [nodeId, xStr, yStr] = parts;
-          const x = Number(xStr), y = Number(yStr);
+          const x = Number(xStr);
+          const y = Number(yStr);
           if (!Number.isFinite(x) || !Number.isFinite(y)) {
-            errors.push({ line: lineNum, message: `@position x and y must be numbers` });
+            errors.push({ line: lineNum, message: '@position x and y must be numbers' });
             break;
           }
           savedPositions[nodeId] = { x: Math.round(x), y: Math.round(y) };
@@ -129,7 +249,6 @@ export function parseIFF(lines: string[]): ParseResult {
           }
           break;
         }
-
         case '@show-ids': {
           const v = value.toLowerCase();
           if (v !== 'on' && v !== 'off') {
@@ -139,129 +258,151 @@ export function parseIFF(lines: string[]): ParseResult {
           }
           break;
         }
-
         default:
           errors.push({ line: lineNum, message: `Unknown directive: ${keyword}` });
       }
       continue;
     }
 
-    // ── Element keywords ─────────────────────────────────────────────
-    const firstSpace = line.indexOf(' ');
-    const keyword    = firstSpace === -1 ? line : line.slice(0, firstSpace);
-    const rest       = firstSpace === -1 ? '' : line.slice(firstSpace + 1).trim();
+    const { keyword, rest } = parseKeywordAndRest(line);
 
     switch (keyword) {
-
-      // store <id> [<locationType>] [<state>] [label:"..."]
       case 'store': {
         const bracketStart = rest.indexOf('[');
         const id = (bracketStart === -1 ? rest : rest.slice(0, bracketStart)).trim();
-
         if (!id) {
           errors.push({ line: lineNum, message: 'store requires an id' });
           break;
         }
 
-        const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
-
-        // Build lookup set from declared location-types
-        const knownLocationTypes = new Set(locationTypes.map(lt => lt.name.toLowerCase()));
-
+        const knownLocationTypes = new Set(locationTypes.map(entry => entry.name.toLowerCase()));
         let locationType: string | undefined;
         let state: IFFState = 'current';
-        let label: string   = id;
+        let label = id;
 
-        for (const b of brackets) {
-          const bLower = b.toLowerCase();
-          if (knownLocationTypes.has(bLower)) {
-            locationType = locationTypes.find(lt => lt.name.toLowerCase() === bLower)!.name;
-          } else if ((VALID_STATES as readonly string[]).includes(bLower)) {
-            state = bLower as IFFState;
-          } else if (b.startsWith('label:')) {
-            // label:"Human Readable Label" — strip quotes
-            label = b.slice(6).replace(/^["']|["']$/g, '').trim();
+        for (const qualifier of parseBracketQualifiers(rest)) {
+          const lower = qualifier.toLowerCase();
+          if (knownLocationTypes.has(lower)) {
+            locationType = locationTypes.find(entry => entry.name.toLowerCase() === lower)!.name;
+          } else if (VALID_STATES.includes(lower)) {
+            state = normalizeState(lower);
+          } else if (qualifier.startsWith('label:')) {
+            label = qualifier.slice(6).replace(/^["']|["']$/g, '').trim();
           } else {
-            const validTypes = locationTypes.map(lt => lt.name).join(', ') || 'none defined — add @location-types block';
-            errors.push({ line: lineNum, message: `Unknown qualifier: [${b}]. Valid location-types: ${validTypes}` });
+            const validTypes = locationTypes.map(entry => entry.name).join(', ') || 'none defined — add @location-types block';
+            errors.push({ line: lineNum, message: `Unknown qualifier: [${qualifier}]. Valid location-types: ${validTypes}` });
           }
         }
 
         if (!locationType) {
-          const validTypes = locationTypes.map(lt => lt.name).join('], [') || 'none defined — add @location-types block';
+          const validTypes = locationTypes.map(entry => entry.name).join('], [') || 'none defined — add @location-types block';
           errors.push({ line: lineNum, message: `store "${id}" requires a location-type: [${validTypes}]` });
           break;
         }
 
         stores.push({ kind: 'store', id, label, locationType, state, x: 0, y: 0 });
-        if (currentGroup) currentGroup.members.push(id);
+        currentGroup?.members.push(id);
         break;
       }
 
-      // link <from> -> <to> : <relationship>
+      case 'process': {
+        const bracketStart = rest.indexOf('[');
+        const id = (bracketStart === -1 ? rest : rest.slice(0, bracketStart)).trim();
+        if (!id) {
+          errors.push({ line: lineNum, message: 'process requires an id' });
+          break;
+        }
+
+        const knownSystems = new Set(systemTypes.map(entry => entry.name.toLowerCase()));
+        let system = currentGroup?.system;
+        let state: IFFState = 'current';
+        let label = id;
+
+        for (const qualifier of parseBracketQualifiers(rest)) {
+          const lower = qualifier.toLowerCase();
+          if (knownSystems.has(lower)) {
+            system = systemTypes.find(entry => entry.name.toLowerCase() === lower)!.name;
+          } else if (VALID_STATES.includes(lower)) {
+            state = normalizeState(lower);
+          } else if (qualifier.startsWith('label:')) {
+            label = qualifier.slice(6).replace(/^["']|["']$/g, '').trim();
+          } else {
+            const validSystems = systemTypes.map(entry => entry.name).join(', ') || 'none defined — add @systems block';
+            errors.push({ line: lineNum, message: `Unknown qualifier: [${qualifier}]. Valid systems: ${validSystems}` });
+          }
+        }
+
+        if (!system) {
+          const validSystems = systemTypes.map(entry => entry.name).join('], [') || 'none defined — add @systems block';
+          errors.push({ line: lineNum, message: `process "${id}" requires a system: [${validSystems}] or a parent group [system:<name>]` });
+          break;
+        }
+
+        processes.push({ kind: 'process', id, label, system, state, x: 0, y: 0 });
+        currentGroup?.members.push(id);
+        break;
+      }
+
       case 'link': {
         const arrowIdx = rest.indexOf('->');
         if (arrowIdx === -1) {
           errors.push({ line: lineNum, message: 'link requires "->" between from and to' });
           break;
         }
-        const from       = rest.slice(0, arrowIdx).trim();
+
+        const from = rest.slice(0, arrowIdx).trim();
         const afterArrow = rest.slice(arrowIdx + 2).trim();
-        const colonIdx   = afterArrow.indexOf(':');
+        const colonIdx = afterArrow.indexOf(':');
         if (colonIdx === -1) {
           errors.push({ line: lineNum, message: 'link requires ":" before relationship' });
           break;
         }
-        const to          = afterArrow.slice(0, colonIdx).trim();
-        const afterColon  = afterArrow.slice(colonIdx + 1).trim();
 
-        // Optional transport bracket: relationship [transport]
-        const bracketIdx    = afterColon.indexOf('[');
-        const relationship  = (bracketIdx === -1 ? afterColon : afterColon.slice(0, bracketIdx)).trim().toLowerCase();
-        const transportRaw  = bracketIdx !== -1 ? afterColon.slice(bracketIdx) : '';
-        const transportMatch = transportRaw.match(/\[([^\]]+)\]/);
-        const transport      = transportMatch ? transportMatch[1].trim() : undefined;
+        const to = afterArrow.slice(0, colonIdx).trim();
+        const afterColon = afterArrow.slice(colonIdx + 1).trim();
+        const bracketIdx = afterColon.indexOf('[');
+        const relationship = (bracketIdx === -1 ? afterColon : afterColon.slice(0, bracketIdx)).trim().toLowerCase();
 
-        if (!from) { errors.push({ line: lineNum, message: 'link: missing source id' });   break; }
-        if (!to)   { errors.push({ line: lineNum, message: 'link: missing target id' });   break; }
-
+        if (!from) { errors.push({ line: lineNum, message: 'link: missing source id' }); break; }
+        if (!to) { errors.push({ line: lineNum, message: 'link: missing target id' }); break; }
         if (!(VALID_RELATIONSHIPS as readonly string[]).includes(relationship)) {
           errors.push({ line: lineNum, message: `Unknown relationship: "${relationship}". Valid: ${VALID_RELATIONSHIPS.join(', ')}` });
           break;
         }
 
-        links.push({ kind: 'link', id: nextId('link'), from, to, relationship: relationship as IFFRelationship, transport });
+        let flowType = inferFlowType(relationship as IFFRelationship);
+        let flowTypeExplicit = false;
+        for (const qualifier of parseBracketQualifiers(afterColon)) {
+          if (qualifier.startsWith('flow:')) {
+            flowType = qualifier.slice(5).trim();
+            flowTypeExplicit = true;
+          } else {
+            // Backward-compatible legacy syntax: [kafka], [batch], etc.
+            flowType = qualifier;
+          }
+        }
+
+        links.push({ kind: 'link', id: nextId('link'), from, to, relationship: relationship as IFFRelationship, flowType, flowTypeExplicit });
         break;
       }
 
-      // group <id> <label> [corner:*] ... end
       case 'group': {
         if (currentGroup) {
           errors.push({ line: lineNum, message: `Cannot nest groups — already inside group "${currentGroup.id}"` });
           break;
         }
-        const bracketStart   = rest.indexOf('[');
-        const beforeBrackets = (bracketStart === -1 ? rest : rest.slice(0, bracketStart)).trim();
-        const spaceIdx       = beforeBrackets.indexOf(' ');
-        const groupId        = spaceIdx === -1 ? beforeBrackets : beforeBrackets.slice(0, spaceIdx).trim();
-        const rawLabel       = spaceIdx === -1 ? '' : beforeBrackets.slice(spaceIdx + 1).trim();
 
-        if (!groupId) {
-          errors.push({ line: lineNum, message: 'group requires an id' });
-          break;
-        }
+        const parsed = parseGroupHeader(rest, lineNum, errors);
+        if (!parsed) break;
 
-        let labelCorner: IFFLabelCorner = 'upper-right';
-        const brackets = [...rest.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim().toLowerCase());
-        for (const b of brackets) {
-          if      (b === 'corner:upper-left')  labelCorner = 'upper-left';
-          else if (b === 'corner:upper-right') labelCorner = 'upper-right';
-          else if (b === 'corner:lower-left')  labelCorner = 'lower-left';
-          else if (b === 'corner:lower-right') labelCorner = 'lower-right';
-          else errors.push({ line: lineNum, message: `Unknown group qualifier: [${b}]. Valid: [corner:upper-left], [corner:upper-right], [corner:lower-left], [corner:lower-right]` });
-        }
-
-        currentGroup = { kind: 'group', id: groupId, label: rawLabel || groupId, members: [], labelCorner };
+        currentGroup = {
+          kind: 'group',
+          id: parsed.groupId,
+          label: parsed.label,
+          members: [],
+          labelCorner: parsed.labelCorner,
+          system: parsed.system,
+        };
         break;
       }
 
@@ -280,18 +421,42 @@ export function parseIFF(lines: string[]): ParseResult {
     }
   }
 
-  // ── Post-parse validation ─────────────────────────────────────────
   if (currentGroup) {
     errors.push({ line: 0, message: `Group "${currentGroup.id}" was never closed with "end"` });
   }
 
-  const storeIds = new Set(stores.map(s => s.id));
+  const nodes: IFFNode[] = [...stores, ...processes];
+  const nodeIds = new Set<string>();
+  for (const node of nodes) {
+    if (nodeIds.has(node.id)) {
+      errors.push({ line: 0, message: `Duplicate node id "${node.id}"` });
+      continue;
+    }
+    nodeIds.add(node.id);
+  }
+
+  const knownSystems = new Set(systemTypes.map(entry => entry.name));
+  for (const group of groups) {
+    if (group.system && !knownSystems.has(group.system)) {
+      errors.push({ line: 0, message: `group "${group.id}" references unknown system "${group.system}"` });
+    }
+  }
+
   for (const link of links) {
-    if (!storeIds.has(link.from)) {
+    if (!nodeIds.has(link.from)) {
       errors.push({ line: 0, message: `link: unknown id "${link.from}"` });
     }
-    if (!storeIds.has(link.to)) {
+    if (!nodeIds.has(link.to)) {
       errors.push({ line: 0, message: `link: unknown id "${link.to}"` });
+    }
+  }
+
+  const flowTypeNames = new Set(flowTypes.map(entry => entry.name));
+  const defaultFlowTypes = new Set(['sync', 'async', 'batch']);
+  for (const link of links) {
+    if (!link.flowType || !link.flowTypeExplicit) continue;
+    if (!flowTypeNames.has(link.flowType) && !defaultFlowTypes.has(link.flowType)) {
+      errors.push({ line: 0, message: `link "${link.id}" references unknown flow type "${link.flowType}"` });
     }
   }
 
@@ -299,18 +464,27 @@ export function parseIFF(lines: string[]): ParseResult {
   for (const group of groups) {
     for (const memberId of group.members) {
       if (memberGroupMap.has(memberId)) {
-        errors.push({ line: 0, message: `Store "${memberId}" appears in both group "${memberGroupMap.get(memberId)}" and group "${group.id}"` });
+        errors.push({ line: 0, message: `Node "${memberId}" appears in both group "${memberGroupMap.get(memberId)}" and group "${group.id}"` });
       } else {
         memberGroupMap.set(memberId, group.id);
       }
     }
   }
 
-  // Store location-types in meta
-  if (locationTypes.length > 0) {
-    meta.locationTypes = locationTypes;
-  }
+  if (locationTypes.length > 0) meta.locationTypes = locationTypes;
+  if (systemTypes.length > 0) meta.systemTypes = systemTypes;
+  if (flowTypes.length > 0) meta.flowTypes = flowTypes;
 
-  const model: IFFModel = { meta, stores, links, groups, savedPositions };
+  const model: IFFModel = {
+    meta,
+    stores,
+    processes,
+    nodes,
+    links,
+    groups,
+    savedPositions,
+    systemTypes: systemTypes.length > 0 ? systemTypes : undefined,
+    flowTypes: flowTypes.length > 0 ? flowTypes : undefined,
+  };
   return { model, errors };
 }

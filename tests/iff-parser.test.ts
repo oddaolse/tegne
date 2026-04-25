@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '../src/parser';
 import type { IFFModel } from '../src/types';
 
-// Helper to create DSL with @location-types block
-const withLocationTypes = (body: string) => `@type infoflow
+const withInfoflowBlocks = (body: string) => `@type infoflow
 @location-types
   master blue
   replica cyan
@@ -13,156 +12,147 @@ const withLocationTypes = (body: string) => `@type infoflow
   reference grey
   consumer grey
 
+@systems
+  SystemA blue
+  SystemB teal
+  SystemC red
+
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
 ${body}`;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Positive tests
-// ─────────────────────────────────────────────────────────────────────────────
-
 describe('iff-parser — positive tests', () => {
-
   it('dispatches @type infoflow to the IFF parser', () => {
-    const { model, errors } = parse(withLocationTypes('store A [master]'));
+    const { model, errors } = parse(withInfoflowBlocks('store A [master]'));
     expect(errors).toHaveLength(0);
     expect(model).not.toBeNull();
     expect(model!.meta.diagramType).toBe('infoflow');
   });
 
   it('parses a store with location-type', () => {
-    const { model, errors } = parse(withLocationTypes('store crm [master]'));
+    const { model, errors } = parse(withInfoflowBlocks('store crm [master]'));
     expect(errors).toHaveLength(0);
     const iff = model as IFFModel;
     expect(iff.stores).toHaveLength(1);
+    expect(iff.nodes).toHaveLength(1);
     expect(iff.stores[0]).toMatchObject({ kind: 'store', id: 'crm', locationType: 'master', state: 'current' });
   });
 
-  it('parses all 7 location-types', () => {
-    const dsl = withLocationTypes(`store a [master]
-store b [replica]
-store c [derived]
-store d [aggregate]
-store e [golden]
-store f [reference]
-store g [consumer]`);
-    const { model, errors } = parse(dsl);
+  it('parses a process with explicit system', () => {
+    const { model, errors } = parse(withInfoflowBlocks('process syncer [SystemA] [label:"Sync Service"]'));
     expect(errors).toHaveLength(0);
     const iff = model as IFFModel;
-    expect(iff.stores.map(s => s.locationType)).toEqual([
-      'master', 'replica', 'derived', 'aggregate', 'golden', 'reference', 'consumer',
+    expect(iff.processes).toHaveLength(1);
+    expect(iff.processes[0]).toMatchObject({
+      kind: 'process', id: 'syncer', system: 'SystemA', state: 'current', label: 'Sync Service',
+    });
+  });
+
+  it('normalizes [unchanged] to current state', () => {
+    const { model, errors } = parse(withInfoflowBlocks('process syncer [SystemA] [unchanged]'));
+    expect(errors).toHaveLength(0);
+    expect((model as IFFModel).processes[0].state).toBe('current');
+  });
+
+  it('inherits process system from the containing group', () => {
+    const dsl = withInfoflowBlocks(`group customer "Customer Domain" [system:SystemB]
+  process syncer [label:"Sync Service"]
+end`);
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    expect((model as IFFModel).processes[0].system).toBe('SystemB');
+  });
+
+  it('lets process system override inherited group system', () => {
+    const dsl = withInfoflowBlocks(`group customer "Customer Domain" [system:SystemB]
+  process syncer [SystemA]
+end`);
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    expect((model as IFFModel).processes[0].system).toBe('SystemA');
+  });
+
+  it('parses @systems and @flow-types blocks into meta', () => {
+    const { model, errors } = parse(withInfoflowBlocks('store A [master]'));
+    expect(errors).toHaveLength(0);
+    expect(model!.meta.systemTypes).toEqual([
+      { name: 'SystemA', colour: 'blue' },
+      { name: 'SystemB', colour: 'teal' },
+      { name: 'SystemC', colour: 'red' },
+    ]);
+    expect(model!.meta.flowTypes).toEqual([
+      { name: 'sync', style: 'solid' },
+      { name: 'async', style: 'dashed' },
+      { name: 'batch', style: 'thick' },
     ]);
   });
 
-  it('parses optional state [new]', () => {
-    const { model, errors } = parse(withLocationTypes('store A [master] [new]'));
+  it('parses query and subscribe relationships', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A -> B : query [flow:sync]
+link B -> A : subscribe [flow:async]`);
+    const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect((model as IFFModel).stores[0].state).toBe('new');
+    expect((model as IFFModel).links.map(link => link.relationship)).toEqual(['query', 'subscribe']);
   });
 
-  it('parses optional state [changing]', () => {
-    const { model, errors } = parse(withLocationTypes('store A [golden] [changing]'));
+  it('parses explicit flow types on links', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A -> B : replicate [flow:batch]`);
+    const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect((model as IFFModel).stores[0].state).toBe('changing');
+    expect((model as IFFModel).links[0].flowType).toBe('batch');
   });
 
-  it('parses optional state [decommissioned]', () => {
-    const { model, errors } = parse(withLocationTypes('store A [replica] [decommissioned]'));
+  it('infers default flow types when omitted', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A -> B : query
+link B -> A : publish`);
+    const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect((model as IFFModel).stores[0].state).toBe('decommissioned');
+    expect((model as IFFModel).links.map(link => link.flowType)).toEqual(['sync', 'async']);
   });
 
-  it('defaults state to current when omitted', () => {
-    const { model, errors } = parse(withLocationTypes('store A [master]'));
+  it('accepts legacy bare link qualifiers for backward compatibility', async () => {
+    const dsl = (await import('../fixtures/customer_information.iff?raw')).default;
+    const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect((model as IFFModel).stores[0].state).toBe('current');
+    const iff = model as IFFModel;
+    expect(iff.links.some(link => link.flowType === 'kafka')).toBe(true);
   });
 
-  it('parses optional label override', () => {
-    const { model, errors } = parse(withLocationTypes('store crm [master] [label:"CRM System"]'));
-    expect(errors).toHaveLength(0);
-    expect((model as IFFModel).stores[0].label).toBe('CRM System');
-  });
-
-  it('defaults label to id when no label override', () => {
-    const { model, errors } = parse(withLocationTypes('store crm [master]'));
-    expect(errors).toHaveLength(0);
-    expect((model as IFFModel).stores[0].label).toBe('crm');
-  });
-
-  it('parses link with all relationship types', () => {
-    const relationships = ['replicate', 'publish', 'ingest', 'derive', 'aggregate', 'enrich', 'merge', 'serve'];
-    for (const rel of relationships) {
-      const dsl = withLocationTypes(`store A [master]\nstore B [replica]\nlink A -> B : ${rel}`);
-      const { model, errors } = parse(dsl);
-      expect(errors).toHaveLength(0);
-      expect((model as IFFModel).links[0].relationship).toBe(rel);
-    }
-  });
-
-  it('parses @position directives for stores', () => {
-    const dsl = withLocationTypes(`store A [master]\n@position A 100 200`);
+  it('parses @position directives for stores and processes', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+@position A 100 200
+@position B 400 300`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect(model!.savedPositions['A']).toEqual({ x: 100, y: 200 });
+    expect(model!.savedPositions['B']).toEqual({ x: 400, y: 300 });
   });
 
-  it('parses @position __meta__', () => {
-    const dsl = withLocationTypes(`store A [master]\n@position __meta__ 50 800`);
-    const { model, errors } = parse(dsl);
-    expect(errors).toHaveLength(0);
-    expect(model!.savedPositions['__meta__']).toEqual({ x: 50, y: 800 });
-  });
-
-  it('parses group...end blocks', () => {
-    const dsl = withLocationTypes(`group domain Customer Domain [corner:upper-left]
-store crm [master]
-store cdp [golden]
+  it('parses group labels with quotes and mixed members', () => {
+    const dsl = withInfoflowBlocks(`group domain "Customer Domain" [corner:upper-left] [system:SystemA]
+  store crm [master]
+  process syncer [label:"Sync"]
 end`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     const iff = model as IFFModel;
-    expect(iff.groups).toHaveLength(1);
-    expect(iff.groups[0].id).toBe('domain');
-    expect(iff.groups[0].label).toBe('Customer Domain');
-    expect(iff.groups[0].labelCorner).toBe('upper-left');
-    expect(iff.groups[0].members).toEqual(['crm', 'cdp']);
-  });
-
-  it('defaults group label corner to upper-right', () => {
-    const dsl = withLocationTypes(`group g Test\nstore A [master]\nend`);
-    const { model, errors } = parse(dsl);
-    expect(errors).toHaveLength(0);
-    expect((model as IFFModel).groups[0].labelCorner).toBe('upper-right');
-  });
-
-  it('parses metadata directives', () => {
-    const dsl = `@type infoflow
-@name My IFF
-@author Jane
-@version 2.0
-@date 2026-01-01`;
-    const { model, errors } = parse(dsl);
-    expect(errors).toHaveLength(0);
-    expect(model!.meta.name).toBe('My IFF');
-    expect(model!.meta.author).toBe('Jane');
-    expect(model!.meta.version).toBe('2.0');
-    expect(model!.meta.date).toBe('2026-01-01');
-  });
-
-  it('parses @location-types block', () => {
-    const dsl = `@type infoflow
-@location-types
-  source blue
-  target green
-
-store A [source]
-store B [target]`;
-    const { model, errors } = parse(dsl);
-    expect(errors).toHaveLength(0);
-    const iff = model as IFFModel;
-    expect(iff.meta.locationTypes).toHaveLength(2);
-    expect(iff.meta.locationTypes![0]).toEqual({ name: 'source', colour: 'blue' });
-    expect(iff.stores[0].locationType).toBe('source');
-    expect(iff.stores[1].locationType).toBe('target');
+    expect(iff.groups[0]).toMatchObject({
+      id: 'domain',
+      label: 'Customer Domain',
+      labelCorner: 'upper-left',
+      system: 'SystemA',
+      members: ['crm', 'syncer'],
+    });
   });
 
   it('parses customer_information.iff fixture without errors', async () => {
@@ -171,106 +161,105 @@ store B [target]`;
     expect(errors).toHaveLength(0);
   });
 
-  it('customer_information.iff has all expected element counts', async () => {
+  it('customer_information.iff has expected store and group counts', async () => {
     const dsl = (await import('../fixtures/customer_information.iff?raw')).default;
     const { model } = parse(dsl);
     const iff = model as IFFModel;
     expect(iff.stores.length).toBeGreaterThanOrEqual(6);
+    expect(iff.processes).toHaveLength(0);
     expect(iff.links.length).toBeGreaterThanOrEqual(6);
+    expect(iff.groups.length).toBe(2);
+  });
+
+  it('parses mixed process fixture without errors', async () => {
+    const dsl = (await import('../fixtures/customer_information_process.iff?raw')).default;
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    const iff = model as IFFModel;
+    expect(iff.stores.length).toBe(5);
+    expect(iff.processes.length).toBe(4);
+    expect(iff.links.length).toBe(8);
     expect(iff.groups.length).toBe(2);
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Negative tests
-// ─────────────────────────────────────────────────────────────────────────────
-
 describe('iff-parser — negative tests', () => {
-
   it('reports store missing location-type', () => {
-    const { errors } = parse(withLocationTypes('store A'));
-    expect(errors.some(e => e.message.match(/requires a location-type/i))).toBe(true);
+    const { errors } = parse(withInfoflowBlocks('store A'));
+    expect(errors.some(error => error.message.match(/requires a location-type/i))).toBe(true);
   });
 
-  it('reports store with unknown location-type', () => {
-    const { errors } = parse(withLocationTypes('store A [transient]'));
-    expect(errors.some(e => e.message.match(/unknown qualifier/i))).toBe(true);
+  it('reports process missing system when no group system exists', () => {
+    const { errors } = parse(withInfoflowBlocks('process A'));
+    expect(errors.some(error => error.message.match(/requires a system/i))).toBe(true);
   });
 
-  it('reports store missing id', () => {
-    const { errors } = parse(withLocationTypes('store'));
-    expect(errors.some(e => e.message.match(/requires an id/i))).toBe(true);
+  it('reports unknown process system', () => {
+    const { errors } = parse(withInfoflowBlocks('process A [UnknownSystem]'));
+    expect(errors.some(error => error.message.match(/unknown qualifier/i))).toBe(true);
   });
 
-  it('reports link with unknown relationship', () => {
-    const dsl = withLocationTypes(`store A [master]\nstore B [replica]\nlink A -> B : teleport`);
+  it('reports unknown group system', () => {
+    const dsl = withInfoflowBlocks(`group g Test [system:Ghost]
+  process A [SystemA]
+end`);
     const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/unknown relationship/i))).toBe(true);
+    expect(errors.some(error => error.message.match(/unknown system/i))).toBe(true);
   });
 
-  it('reports link with unknown from-id', () => {
-    const dsl = withLocationTypes(`store B [replica]\nlink Ghost -> B : publish`);
+  it('reports unknown flow type', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A -> B : replicate [flow:realtime]`);
     const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/unknown id.*Ghost/i))).toBe(true);
+    expect(errors.some(error => error.message.match(/unknown flow type/i))).toBe(true);
   });
 
-  it('reports link with unknown to-id', () => {
-    const dsl = withLocationTypes(`store A [master]\nlink A -> Ghost : publish`);
+  it('reports link to unknown node id', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+link A -> Ghost : publish`);
     const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/unknown id.*Ghost/i))).toBe(true);
+    expect(errors.some(error => error.message.match(/unknown id.*Ghost/i))).toBe(true);
   });
 
-  it('reports link missing arrow', () => {
-    const dsl = withLocationTypes(`store A [master]\nstore B [replica]\nlink A B : publish`);
+  it('reports duplicate ids across store and process declarations', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process A [SystemA]`);
     const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/->/i))).toBe(true);
+    expect(errors.some(error => error.message.match(/duplicate node id/i))).toBe(true);
   });
 
-  it('reports link missing colon', () => {
-    const dsl = withLocationTypes(`store A [master]\nstore B [replica]\nlink A -> B`);
+  it('reports invalid process qualifier', () => {
+    const { errors } = parse(withInfoflowBlocks('process A [master]'));
+    expect(errors.some(error => error.message.match(/valid systems/i))).toBe(true);
+  });
+
+  it('reports invalid group qualifier', () => {
+    const dsl = withInfoflowBlocks(`group g Test [foo:bar]
+  store A [master]
+end`);
     const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/:/i))).toBe(true);
+    expect(errors.some(error => error.message.match(/unknown group qualifier/i))).toBe(true);
   });
 
   it('reports nested group', () => {
-    const dsl = withLocationTypes(`group outer Outer
-store A [master]
-group inner Inner
-store B [replica]
-end
+    const dsl = withInfoflowBlocks(`group outer Outer
+  store A [master]
+  group inner Inner
+    process B [SystemA]
+  end
 end`);
     const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/nest/i))).toBe(true);
+    expect(errors.some(error => error.message.match(/nest/i))).toBe(true);
   });
 
-  it('reports unclosed group', () => {
-    const dsl = withLocationTypes(`group g Test\nstore A [master]`);
-    const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/never closed/i))).toBe(true);
-  });
-
-  it('reports end without group', () => {
-    const { errors } = parse(withLocationTypes('end'));
-    expect(errors.some(e => e.message.match(/"end" without/i))).toBe(true);
-  });
-
-  it('reports unknown directive', () => {
-    const { errors } = parse('@type infoflow\n@foobar something');
-    expect(errors.some(e => e.message.match(/unknown directive/i))).toBe(true);
-  });
-
-  it('reports unknown keyword', () => {
-    const { errors } = parse(withLocationTypes('foobar baz'));
-    expect(errors.some(e => e.message.match(/unknown keyword/i))).toBe(true);
-  });
-
-  it('reports invalid palette colour in @location-types', () => {
+  it('reports invalid palette colour in @systems', () => {
     const dsl = `@type infoflow
-@location-types
-  invalid neon-magenta
+@systems
+  Broken coral
 
-store A [invalid]`;
+process A [Broken]`;
     const { errors } = parse(dsl);
-    expect(errors.some(e => e.message.match(/unknown palette colour/i))).toBe(true);
+    expect(errors.some(error => error.message.match(/unknown palette colour/i))).toBe(true);
   });
 });

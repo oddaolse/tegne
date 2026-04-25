@@ -7,6 +7,16 @@ export interface LocationType {
   colour: string;   // base colour name: "green", "blue", "red", etc.
 }
 
+export interface SystemType {
+  name:   string;
+  colour: string;
+}
+
+export interface FlowType {
+  name:  string;
+  style: string;
+}
+
 export interface ModelMeta {
   diagramType?:    DiagramType;
   name?:           string;
@@ -19,6 +29,8 @@ export interface ModelMeta {
   legend?:         boolean;         // show legend box (default: true)
   showIds?:        boolean;         // overlay element id badges (default: false)
   locationTypes?:  LocationType[];  // user-defined location-type → colour mappings
+  systemTypes?:    SystemType[];    // user-defined process system → colour mappings
+  flowTypes?:      FlowType[];      // user-defined flow-type → style mappings
 }
 
 export interface Position { x: number; y: number; }
@@ -55,7 +67,7 @@ export type {
 
 export type {
   IFFRelationship, IFFState, IFFLabelCorner,
-  IFFStore, IFFLink, IFFGroup,
+  IFFNodeBase, IFFStore, IFFProcess, IFFNode, IFFLink, IFFGroup,
   IFFModel,
 } from './iff/types';
 

@@ -73,8 +73,8 @@ function updateEditorPositions(model: SDModel | IDModel | IFFModel | TMModel): v
       .map(e => `@position ${e.id} ${Math.round(e.x)} ${Math.round(e.y)}`)
       .join('\n');
   } else if (model.meta.diagramType === 'infoflow') {
-    posLines = (model as IFFModel).stores
-      .map(s => `@position ${s.id} ${Math.round(s.x)} ${Math.round(s.y)}`)
+    posLines = (model as IFFModel).nodes
+      .map(node => `@position ${node.id} ${Math.round(node.x)} ${Math.round(node.y)}`)
       .join('\n');
   } else if (model.meta.diagramType === 'tm') {
     posLines = (model as TMModel).refs

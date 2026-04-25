@@ -7,7 +7,7 @@ A browser-based diagram editor for structural and visual modelling. Write a mode
 Supports three diagram types:
 - **Stock-and-Flow diagrams** (`@type sd`) — Forrester/System Dynamics structural modelling
 - **Integration diagrams** (`@type id`) — IT architecture, showing systems, databases, queues, and their connections
-- **Information Flow diagrams** (`@type infoflow`) — data landscape showing how information is owned, replicated, derived, and consumed across stores
+- **Information Flow diagrams** (`@type infoflow`) — data landscape showing how information moves between stores and processes
 ---
 
 ## Quick Start
@@ -200,7 +200,7 @@ A legend is auto-generated in the upper-right corner showing every platform/stat
 
 ### Purpose
 
-For data architects documenting a data landscape — where data lives, what role each store plays, and how data moves between stores. Focuses on data ownership and semantics, not transport mechanics.
+For data architects documenting a data landscape — where data lives, which processes act on it, and how information moves across the landscape. Focuses on ownership, semantics, and change scope rather than infrastructure detail.
 
 ### DSL Syntax
 
@@ -212,26 +212,41 @@ For data architects documenting a data landscape — where data lives, what role
 @theme    dark             # dark (default), light, or tokyo
 @size     a4               # a4 (default), a3, a2, a1, a0
 
-# store  id  [role]  [state]  [label:"Human Readable Name"]
+@location-types
+  master blue
+  replica cyan
+  derived green
+  aggregate purple
+  reference grey
+  consumer grey
+
+@systems
+  SystemA blue
+  SystemB teal
+
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
 store crm        [master]
-store cdp        [golden]    [label:"Customer Data Platform"]
-store search_idx [replica]   [new]
-store sales_dw   [aggregate] [changing]
+store cdp        [replica]   [changing] [label:"Customer Data Platform"]
+process syncer   [SystemA]   [label:"Sync Service"]
 
-# link  from  ->  to  : relationship  [transport]
-link crm        -> cdp        : publish    [kafka]
-link cdp        -> search_idx : replicate  [cdc]
-link crm        -> sales_dw   : ingest     [batch]
+link crm      -> syncer : query     [flow:sync]
+link syncer   -> cdp    : replicate [flow:batch]
 
-group customer_domain Customer Domain [label:upper-left]
+group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   store crm [master]
-  store cdp [golden]
+  process syncer
 end
 ```
 
-### Roles
+### Stores
 
-| Role | Meaning |
+Stores render as database drums.
+
+| Location Type | Meaning |
 |---|---|
 | `master` | System of record — authoritative source |
 | `replica` | Exact copy kept in sync |
@@ -241,22 +256,34 @@ end
 | `reference` | Stable lookup data (e.g. country codes) |
 | `consumer` | Read-only downstream sink |
 
+### Processes
+
+Processes render as squares and use `@systems` for colour.
+
+```
+process <id> [<system>] [<state>] [label:"Human Readable Name"]
+```
+
+If a process is declared inside `group ... [system:<name>]`, it inherits that system unless overridden locally.
+
 ### Relationships
 
 | Keyword | Meaning |
 |---|---|
 | `replicate` | Byte-for-byte copy kept in sync |
 | `publish` | Events pushed to a broker or stream |
+| `subscribe` | Event consumer or stream subscriber |
 | `ingest` | Bulk load or batch import |
 | `derive` | Transform or compute a new dataset |
 | `aggregate` | Roll up or combine multiple sources |
 | `enrich` | Add fields from the source to an existing dataset |
 | `merge` | Reconcile multiple stores into one |
 | `serve` | Expose data to a downstream consumer |
+| `query` | Synchronous read from another node |
 
 ### Lifecycle states
 
-Same states as Integration Diagram — `[new]`, `[changing]`, `[decommissioned]` — reflected in border style.
+Supported states are `current` (default), `[unchanged]`, `[new]`, `[changing]`, and `[decommissioned]`. `[unchanged]` is an alias for the default current state. Visuals are: solid for unchanged/current, dashed for changing, dotted for new, and an `X` marker for decommissioned.
 
 ### Groupings
 

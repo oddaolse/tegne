@@ -10,11 +10,11 @@ export function iffLayout(model: IFFModel): void {
   const hasSaved = Object.keys(model.savedPositions).length > 0;
 
   if (hasSaved) {
-    for (const store of model.stores) {
-      const pos = model.savedPositions[store.id];
-      if (pos) { store.x = pos.x; store.y = pos.y; }
+    for (const node of model.nodes) {
+      const pos = model.savedPositions[node.id];
+      if (pos) { node.x = pos.x; node.y = pos.y; }
     }
-    if (model.stores.every(s => model.savedPositions[s.id])) return;
+    if (model.nodes.every(node => model.savedPositions[node.id])) return;
   }
 
   // Place group members in contiguous row-aligned blocks, then ungrouped stores.
@@ -25,9 +25,9 @@ export function iffLayout(model: IFFModel): void {
 
   for (const group of model.groups) {
     const members = group.members
-      .map(id => model.stores.find(s => s.id === id))
-      .filter((s): s is NonNullable<typeof s> => !!s)
-      .filter(s => !(hasSaved && model.savedPositions[s.id]));
+      .map(id => model.nodes.find(node => node.id === id))
+      .filter((node): node is NonNullable<typeof node> => !!node)
+      .filter(node => !(hasSaved && model.savedPositions[node.id]));
 
     for (const id of group.members) groupedIds.add(id);
     if (members.length === 0) continue;
@@ -37,20 +37,20 @@ export function iffLayout(model: IFFModel): void {
       col = 0;
     }
 
-    for (const store of members) {
-      store.x = START_X + col * COL_SPACING;
-      store.y = START_Y + row * ROW_SPACING;
+    for (const node of members) {
+      node.x = START_X + col * COL_SPACING;
+      node.y = START_Y + row * ROW_SPACING;
       col++;
       if (col >= COLS) { col = 0; row++; }
     }
   }
 
-  for (const store of model.stores) {
-    if (hasSaved && model.savedPositions[store.id]) continue;
-    if (groupedIds.has(store.id)) continue;
+  for (const node of model.nodes) {
+    if (hasSaved && model.savedPositions[node.id]) continue;
+    if (groupedIds.has(node.id)) continue;
 
-    store.x = START_X + col * COL_SPACING;
-    store.y = START_Y + row * ROW_SPACING;
+    node.x = START_X + col * COL_SPACING;
+    node.y = START_Y + row * ROW_SPACING;
     col++;
     if (col >= COLS) { col = 0; row++; }
   }
