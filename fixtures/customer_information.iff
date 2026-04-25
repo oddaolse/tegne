@@ -33,13 +33,13 @@ store ext_ref     [reference] [label:"External Reference Data"]
 store mobile_app  [consumer]  [label:"Mobile App Cache"]
 
 # Links
-link cis          -> cdp           : publish    [kafka]
-link cdp          -> loyalty_db    : replicate  [batch]
-link cdp          -> analytics_dw  : ingest     [file]
-link analytics_dw -> segment_db    : derive     [materialise]
-link ext_ref      -> cdp           : enrich     [cdc]
-link cdp          -> mobile_app    : serve
-link segment_db   -> mobile_app    : serve
+connect cis          -> cdp           : publish    [kafka]
+connect cdp          -> loyalty_db    : replicate  [batch]
+connect cdp          -> analytics_dw  : ingest     [file]
+connect analytics_dw -> segment_db    : derive     [materialise]
+connect ext_ref      -> cdp           : enrich     [cdc]
+connect cdp          -> mobile_app    : serve
+connect segment_db   -> mobile_app    : serve
 
 @position cis 183 260
 @position cdp 558 259

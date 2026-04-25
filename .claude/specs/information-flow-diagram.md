@@ -27,14 +27,14 @@ Documents how business information is owned, copied, transformed, enriched, aggr
 store <id> [<location-type>] [unchanged|new|changing|decommissioned] [label:"Name"]
 process <id> [<system>] [unchanged|new|changing|decommissioned] [label:"Name"]
 
-link <from> ->  <to> : <relationship> [flow:<type>]
-link <from> <-  <to> : <relationship> [flow:<type>]
-link <from> <-> <to> : <relationship> [flow:<type>]
+connect <from> ->  <to> : <relationship> [flow:<type>]
+connect <from> <-  <to> : <relationship> [flow:<type>]
+connect <from> <-> <to> : <relationship> [flow:<type>]
 
 group <id> "<label>" [system:<system>] [corner:upper-left|upper-right|lower-left|lower-right]
   store declarations
   process declarations
-  link declarations
+  connect declarations
 end
 ```
 
@@ -65,14 +65,15 @@ location_types  = "@location-types" newline { indented identifier colour newline
 systems         = "@systems" newline { indented identifier colour newline } ;
 flow_types      = "@flow-types" newline { indented identifier flow_style newline } ;
 
-declaration     = store | process | link | group ;
+declaration     = store | process | connect | link_legacy | group ;
 
 store           = "store" id { bracketed_store_attr } ;
 process         = "process" id { bracketed_process_attr } ;
-link            = "link" id link_operator id ":" relationship [ bracketed_flow_attr | bracketed_legacy_flow ] ;
-link_operator   = "->" | "<-" | "<->" ;
+connect         = "connect" id connect_operator id ":" relationship [ bracketed_flow_attr | bracketed_legacy_flow ] ;
+link_legacy     = "link" id connect_operator id ":" relationship [ bracketed_flow_attr | bracketed_legacy_flow ] ;
+connect_operator = "->" | "<-" | "<->" ;
 group           = "group" id label { bracketed_group_attr } newline
-                  { store | process | link | comment | blank }
+                  { store | process | connect | link_legacy | comment | blank }
                   "end" ;
 
 position        = "@position" id number number ;
@@ -106,13 +107,14 @@ blank           = "" ;
 - Process system is required unless inherited from parent `group [system:<name>]`.
 - `unchanged` is accepted as an alias for the default current state.
 - Node IDs are unique across stores and processes.
-- Links may connect any declared node IDs.
-- Link operators define direction: `->` flows left-to-right, `<-` flows right-to-left, and `<->` is bidirectional.
+- Connections may connect any declared node IDs.
+- Connection operators define direction: `->` flows left-to-right, `<-` flows right-to-left, and `<->` is bidirectional.
 - Groups cannot be nested.
 - A node may belong to at most one group.
-- Legacy bare link qualifiers such as `[kafka]` are accepted for backward compatibility, but preferred syntax is `[flow:<type>]`.
+- Legacy bare connection qualifiers such as `[kafka]` are accepted for backward compatibility, but preferred syntax is `[flow:<type>]`.
+- `link` is accepted as a legacy alias for `connect`; new diagrams should use `connect`.
 - `@include` may load same-type `.iff` files from the opened project folder.
-- Included files contribute `@location-types`, `@systems`, `@flow-types`, and display defaults only. Stores, processes, links, groups, positions, and nested includes are invalid inside included files.
+- Included files contribute `@location-types`, `@systems`, `@flow-types`, and display defaults only. Stores, processes, connections, groups, positions, and nested includes are invalid inside included files.
 - Included dictionaries merge before local dictionaries; duplicate names across includes or between include and host are parse errors.
 
 ## Relationships
@@ -182,14 +184,14 @@ group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   store cis [master] [label:"CIS"]
   store cdp [replica] [changing] [label:"CDP"]
   process cis_sync [label:"CIS Sync Service"]
-  link cis -> cis_sync : query [flow:sync]
-  link cis_sync -> cdp : replicate [flow:batch]
-  link cis <-> cdp : merge [flow:sync]
+  connect cis -> cis_sync : query [flow:sync]
+  connect cis_sync -> cdp : replicate [flow:batch]
+  connect cis <-> cdp : merge [flow:sync]
 end
 
 store ext_ref [reference] [label:"External Reference Data"]
 process analytics_job [SystemB] [new] [label:"Analytics Job"]
-link ext_ref -> analytics_job : enrich [flow:sync]
+connect ext_ref -> analytics_job : enrich [flow:sync]
 ```
 
 ## Invalid Cases
@@ -200,7 +202,7 @@ link ext_ref -> analytics_job : enrich [flow:sync]
 - unknown system
 - unknown explicit flow type
 - duplicate node ID
-- link to unknown node ID
+- connection to unknown node ID
 - nested group
 
 ## Required Tests
