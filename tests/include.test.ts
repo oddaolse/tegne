@@ -68,6 +68,29 @@ system Api [cloud]`;
     expect(errors.some(error => error.message.match(/already contributed by an @include/i))).toBe(true);
   });
 
+  it('merges ID flow-types from included files', () => {
+    const files = new Map([[
+      'common.id',
+      `@type id
+@location-types
+  cloud blue
+@flow-types
+  async dashed`,
+    ]]);
+    const dsl = `@type id
+@include common.id
+system Api [cloud]
+system Queue [cloud]
+connect Api -> Queue : SQS [flow:async]`;
+
+    const { model, errors } = parse(dsl, { includeFiles: files });
+
+    expect(errors).toHaveLength(0);
+    const id = model as IDModel;
+    expect(id.meta.flowTypes).toEqual([{ name: 'async', style: 'dashed' }]);
+    expect(id.connections[0].flowType).toBe('async');
+  });
+
   it('rejects positional ID content inside an included file', () => {
     const files = new Map([['common.id', '@type id\n@location-types\n  cloud blue\n\nsystem Illegal [cloud]']]);
     const { errors } = parse('@type id\n@include common.id', { includeFiles: files });

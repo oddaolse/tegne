@@ -385,6 +385,11 @@ end</pre>
 
 # Palette colours: green blue red orange purple grey yellow cyan pink teal
 
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
 system    &lt;id&gt;  [&lt;location-type&gt;]  [new|changing|decommissioned]
 database  &lt;id&gt;  [&lt;location-type&gt;]  [new|changing|decommissioned]
 queue     &lt;id&gt;  [&lt;location-type&gt;]  [new|changing|decommissioned]
@@ -393,8 +398,8 @@ queue     &lt;id&gt;  [&lt;location-type&gt;]  [new|changing|decommissioned]
 system    &lt;id&gt;  [&lt;location-type&gt;]  [placement:below]
 database  &lt;id&gt;  [&lt;location-type&gt;]  [placement:inside]
 
-connect  &lt;from&gt;  -&gt;   &lt;to&gt;  : &lt;protocol&gt;    # unidirectional
-connect  &lt;from&gt;  &lt;-&gt;  &lt;to&gt;  : &lt;protocol&gt;    # bidirectional
+connect  &lt;from&gt;  -&gt;   &lt;to&gt;  : &lt;protocol&gt;  [flow:&lt;type&gt;]
+connect  &lt;from&gt;  &lt;-&gt;  &lt;to&gt;  : &lt;protocol&gt;  [flow:&lt;type&gt;]
 
 group &lt;id&gt; &lt;label&gt; [corner:upper-left|upper-right|lower-left|lower-right]
   system/database/queue declarations...

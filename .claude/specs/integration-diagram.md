@@ -16,12 +16,15 @@ Documents IT architecture: systems, databases, queues, technical connections, pl
 @location-types
   <name> <palette-colour>
 
+@flow-types
+  <name> solid|dashed|thick
+
 system   <id> [<location-type>] [new|changing|decommissioned] [placement:inside|below] [label:"Name"]
 database <id> [<location-type>] [new|changing|decommissioned] [placement:inside|below] [label:"Name"]
 queue    <id> [<location-type>] [new|changing|decommissioned] [placement:inside|below] [label:"Name"]
 
-connect <from> ->  <to> : <protocol>
-connect <from> <-> <to> : <protocol>
+connect <from> ->  <to> : <protocol> [flow:<type>]
+connect <from> <-> <to> : <protocol> [flow:<type>]
 
 group <id> <label> [corner:upper-left|upper-right|lower-left|lower-right]
   system/database/queue declarations
@@ -29,6 +32,8 @@ end
 ```
 
 Palette colours: `green`, `blue`, `red`, `orange`, `purple`, `grey`, `yellow`, `cyan`, `pink`, `teal`.
+
+Built-in flow types are `sync`, `async`, and `batch`. A declared `@flow-types` block can define or override the visual mapping.
 
 ## Semantics
 
@@ -39,11 +44,12 @@ Palette colours: `green`, `blue`, `red`, `orange`, `purple`, `grey`, `yellow`, `
 - `->` is unidirectional.
 - `<->` is bidirectional.
 - Protocol labels are free-form text after `:`.
+- `[flow:<type>]` is optional visual metadata. Explicit flow types must be declared in `@flow-types` or use the built-ins `sync`, `async`, or `batch`.
 - Groups cannot be nested.
 - An element may belong to at most one group.
 - `@include` may load same-type `.id` files from the opened project folder.
-- Included files contribute location types and display defaults only. Positional elements, `@position`, and nested includes are invalid inside included files.
-- Included location types merge before local location types; duplicate names across includes or between include and host are parse errors.
+- Included files contribute location types, flow types, and display defaults only. Positional elements, `@position`, and nested includes are invalid inside included files.
+- Included location and flow types merge before local definitions; duplicate names across includes or between include and host are parse errors.
 
 ## Lifecycle State
 
@@ -62,7 +68,7 @@ Palette colours: `green`, `blue`, `red`, `orange`, `purple`, `grey`, `yellow`, `
 | `database` | vertical drum | below |
 | `queue` | horizontal cylinder | below |
 
-Connections use closed arrowheads except when either endpoint is a queue; queue connections use open arrowheads. The legend shows only location/state combinations used in the diagram.
+Connections use closed arrowheads except when either endpoint is a queue; queue connections use open arrowheads. Flow styles render as solid, dashed, or thick lines. The legend shows only location/state and flow-type combinations used in the diagram.
 
 ## Valid Example
 
@@ -74,12 +80,17 @@ Connections use closed arrowheads except when either endpoint is a queue; queue 
   azure blue
   on-prem grey
 
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
 system OrderSvc [aws]
 database CustomerDB [on-prem]
 queue OrderQueue [aws]
 
-connect OrderSvc -> OrderQueue : SQS
-connect OrderSvc <-> CustomerDB : JDBC
+connect OrderSvc -> OrderQueue : SQS [flow:async]
+connect OrderSvc <-> CustomerDB : JDBC [flow:sync]
 ```
 
 ## Invalid Cases

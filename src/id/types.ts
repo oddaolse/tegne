@@ -23,6 +23,8 @@ export interface IDConnection {
   to:        string;
   direction: Direction;
   protocol:  string;
+  flowType?: string;
+  flowTypeExplicit?: boolean;
 }
 
 export interface IDGroup {
