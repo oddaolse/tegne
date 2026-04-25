@@ -100,6 +100,26 @@ link B -> A : subscribe [flow:async]`);
     expect((model as IFFModel).links.map(link => link.relationship)).toEqual(['query', 'subscribe']);
   });
 
+  it('parses all supported link direction operators', () => {
+    const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A -> B : query
+link A <- B : serve
+link A <-> B : merge`);
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    expect((model as IFFModel).links.map(link => ({
+      from: link.from,
+      to: link.to,
+      direction: link.direction,
+      relationship: link.relationship,
+    }))).toEqual([
+      { from: 'A', to: 'B', direction: 'unidirectional', relationship: 'query' },
+      { from: 'B', to: 'A', direction: 'unidirectional', relationship: 'serve' },
+      { from: 'A', to: 'B', direction: 'bidirectional', relationship: 'merge' },
+    ]);
+  });
+
   it('parses explicit flow types on links', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
@@ -221,6 +241,18 @@ link A -> B : replicate [flow:realtime]`);
 link A -> Ghost : publish`);
     const { errors } = parse(dsl);
     expect(errors.some(error => error.message.match(/unknown id.*Ghost/i))).toBe(true);
+  });
+
+  it('reports missing or ambiguous link direction operators', () => {
+    const missing = parse(withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A B : query`));
+    expect(missing.errors.some(error => error.message.match(/"->", "<-", or "<->"/))).toBe(true);
+
+    const ambiguous = parse(withInfoflowBlocks(`store A [master]
+process B [SystemA]
+link A -> B <- A : query`));
+    expect(ambiguous.errors.some(error => error.message.match(/exactly one direction operator/i))).toBe(true);
   });
 
   it('reports duplicate ids across store and process declarations', () => {

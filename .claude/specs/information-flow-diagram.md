@@ -27,7 +27,9 @@ Documents how business information is owned, copied, transformed, enriched, aggr
 store <id> [<location-type>] [unchanged|new|changing|decommissioned] [label:"Name"]
 process <id> [<system>] [unchanged|new|changing|decommissioned] [label:"Name"]
 
-link <from> -> <to> : <relationship> [flow:<type>]
+link <from> ->  <to> : <relationship> [flow:<type>]
+link <from> <-  <to> : <relationship> [flow:<type>]
+link <from> <-> <to> : <relationship> [flow:<type>]
 
 group <id> "<label>" [system:<system>] [corner:upper-left|upper-right|lower-left|lower-right]
   store declarations
@@ -67,7 +69,8 @@ declaration     = store | process | link | group ;
 
 store           = "store" id { bracketed_store_attr } ;
 process         = "process" id { bracketed_process_attr } ;
-link            = "link" id "->" id ":" relationship [ bracketed_flow_attr | bracketed_legacy_flow ] ;
+link            = "link" id link_operator id ":" relationship [ bracketed_flow_attr | bracketed_legacy_flow ] ;
+link_operator   = "->" | "<-" | "<->" ;
 group           = "group" id label { bracketed_group_attr } newline
                   { store | process | link | comment | blank }
                   "end" ;
@@ -104,6 +107,7 @@ blank           = "" ;
 - `unchanged` is accepted as an alias for the default current state.
 - Node IDs are unique across stores and processes.
 - Links may connect any declared node IDs.
+- Link operators define direction: `->` flows left-to-right, `<-` flows right-to-left, and `<->` is bidirectional.
 - Groups cannot be nested.
 - A node may belong to at most one group.
 - Legacy bare link qualifiers such as `[kafka]` are accepted for backward compatibility, but preferred syntax is `[flow:<type>]`.
@@ -180,6 +184,7 @@ group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   process cis_sync [label:"CIS Sync Service"]
   link cis -> cis_sync : query [flow:sync]
   link cis_sync -> cdp : replicate [flow:batch]
+  link cis <-> cdp : merge [flow:sync]
 end
 
 store ext_ref [reference] [label:"External Reference Data"]

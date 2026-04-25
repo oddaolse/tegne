@@ -106,6 +106,13 @@ export function iffFlowStyle(flowType: string | undefined, declaredFlowTypes: Fl
   }
 }
 
+export function iffLinkMarkers(direction: 'unidirectional' | 'bidirectional'): { markerStart: string | null; markerEnd: string } {
+  return {
+    markerStart: direction === 'bidirectional' ? 'url(#iff-arrow)' : null,
+    markerEnd: 'url(#iff-arrow)',
+  };
+}
+
 function defineDefsSection(svg: IffSvgSel, theme: IFFTheme): void {
   const defs = svg.append('defs');
 
@@ -142,6 +149,7 @@ function drawLinks(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
     const fromEdge = iffNodeEdge(fromNode, toNode.x, toNode.y);
     const toEdge = iffNodeEdge(toNode, fromNode.x, fromNode.y);
     const style = iffFlowStyle(link.flowType, model.meta.flowTypes);
+    const markers = iffLinkMarkers(link.direction);
 
     const g = svg.append('g').attr('class', 'iff-link').attr('data-id', link.id);
 
@@ -150,7 +158,8 @@ function drawLinks(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
       .attr('x2', toEdge.x).attr('y2', toEdge.y)
       .attr('stroke', theme.connStroke)
       .attr('stroke-width', style.strokeWidth)
-      .attr('marker-end', 'url(#iff-arrow)');
+      .attr('marker-end', markers.markerEnd);
+    if (markers.markerStart) line.attr('marker-start', markers.markerStart);
     if (style.dashArray) line.attr('stroke-dasharray', style.dashArray);
 
     const mx = (fromEdge.x + toEdge.x) / 2;
