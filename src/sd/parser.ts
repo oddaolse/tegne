@@ -2,8 +2,11 @@ import type {
   Polarity, CloudRole, FlowStrength, SDLabelCorner,
   Stock, Cloud, Auxiliary, Flow, Connector, SDGroup, SDModel,
 } from './types';
-import type { ModelMeta, Position, ParseResult, ParseError } from '../types';
+import type { ModelMeta, Position, ParseResult, ParseError, ParseOptions } from '../types';
+import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES } from '../themes';
+
+const POSITIONAL_KEYWORDS_SD = new Set(['stock', 'cloud', 'flow', 'aux', 'connector', 'group', 'end']);
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -40,7 +43,7 @@ function parseSourceList(
   return results;
 }
 
-export function parseSD(lines: string[]): ParseResult {
+export function parseSD(lines: string[], options?: ParseOptions): ParseResult {
   let idCounter = 0;
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`;
   const errors: ParseError[] = [];
@@ -59,6 +62,8 @@ export function parseSD(lines: string[]): ParseResult {
   const stockNames = new Set<string>();
   let currentGroup: SDGroup | null = null;
 
+  const included = resolveIncludes(lines, 'sd', parseSD, options, errors);
+
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
     const line    = lines[i].trim();
@@ -72,6 +77,12 @@ export function parseSD(lines: string[]): ParseResult {
       const value    = spaceIdx === -1 ? '' : line.slice(spaceIdx + 1).trim();
 
       switch (keyword) {
+        case '@include': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@include is not allowed inside an included file (one level only)' });
+          }
+          break;
+        }
         case '@name':       meta.name       = value; break;
         case '@version':    meta.version    = value; break;
         case '@date':       meta.date       = value; break;
@@ -112,6 +123,10 @@ export function parseSD(lines: string[]): ParseResult {
         }
 
         case '@position': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@position is not allowed in an included file' });
+            break;
+          }
           const parts = value.split(/\s+/);
           if (parts.length !== 3) {
             errors.push({ line: lineNum, message: `@position requires exactly: @position <id> <x> <y>` });
@@ -157,6 +172,11 @@ export function parseSD(lines: string[]): ParseResult {
     const firstSpace = line.indexOf(' ');
     const keyword    = firstSpace === -1 ? line : line.slice(0, firstSpace);
     const rest       = firstSpace === -1 ? '' : line.slice(firstSpace + 1).trim();
+
+    if (options?.includeMode && POSITIONAL_KEYWORDS_SD.has(keyword)) {
+      errors.push({ line: lineNum, message: `"${keyword}" is not allowed in an included file - included files contribute only definitions and defaults` });
+      continue;
+    }
 
     switch (keyword) {
 
@@ -384,6 +404,8 @@ export function parseSD(lines: string[]): ParseResult {
       errors.push({ line: 0, message: `flow "${flow.label}": unknown to node "${flow.to}"` });
     }
   }
+
+  applyMetaDefaults(meta, included.metaDefaults);
 
   const model: SDModel = {
     meta, stocks, clouds, auxiliaries, flows, connectors, groups, savedPositions,

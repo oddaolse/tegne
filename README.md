@@ -4,7 +4,8 @@
 
 A browser-based diagram editor for structural and visual modelling. Write a model in a plain-text DSL, render it as an interactive SVG, adjust the layout by dragging, then save or export.
 
-Supports three diagram types:
+Supports four diagram types:
+- **Threat Models** (`@type tm`) - STRIDE threats over referenced diagram elements
 - **Stock-and-Flow diagrams** (`@type sd`) — Forrester/System Dynamics structural modelling
 - **Integration diagrams** (`@type id`) — IT architecture, showing systems, databases, queues, and their connections
 - **Information Flow diagrams** (`@type infoflow`) — data landscape showing how information moves between stores and processes
@@ -44,6 +45,15 @@ Every file starts with `@type`. If absent, defaults to `sd`.
 | `sd` | Forrester Stock-and-Flow | `.sd` |
 | `id` | Integration diagram | `.id` |
 | `infoflow` | Information Flow diagram | `.iff` |
+| `tm` | Threat model | `.tm` |
+
+Use **Config** to set the common Tegne files folder when a diagram uses shared setup:
+
+```text
+@include common-types.iff
+```
+
+Included files must be the same diagram type. They contribute dictionaries, display defaults, and TM `@ref` entries only; diagram elements, positions, and nested includes are invalid.
 
 ---
 

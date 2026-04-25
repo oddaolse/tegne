@@ -27,14 +27,22 @@ interface FileSystemFileHandle {
 }
 
 interface FileSystemFileHandle {
+  readonly name: string;
   readonly kind: 'file';
   getFile(): Promise<File>;
   createWritable(): Promise<FileSystemWritableFileStream>;
 }
 
+interface FileSystemHandlePermissionDescriptor {
+  mode?: 'read' | 'readwrite';
+}
+
 interface FileSystemDirectoryHandle {
+  readonly name: string;
   readonly kind: 'directory';
   entries(): AsyncIterableIterator<[string, FileSystemFileHandle | FileSystemDirectoryHandle]>;
+  queryPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+  requestPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
 }
 
 interface DirectoryPickerOptions {

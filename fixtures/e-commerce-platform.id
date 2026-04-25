@@ -3,8 +3,8 @@
 @version     2.0
 @author      Platform Team
 @date        2026-04-16
-@theme       dark
-@size        a3
+@theme       light
+@size        a4
 @orientation landscape
 
 @location-types
@@ -53,16 +53,16 @@ connect  order_service       ->   analytics_db         : ETL
 connect  legacy_auth         ->   web_app              : SOAP
 connect  fraud_detect        ->   payment_service      : REST
 
-@position web_app 85 410
-@position mobile_app 359 411
-@position order_service 406 701
-@position payment_service 645 699
-@position notification_service 865 699
-@position order_db 561 962
-@position payment_db 745 966
-@position analytics_db 377 961
-@position message_queue 614 467
-@position notification_queue 770 326
-@position legacy_auth 372 260
-@position fraud_detect 1042 974
-@position __meta__ 24 1015
+@position web_app 188 198
+@position mobile_app 462 199
+@position order_service 377 394
+@position payment_service 616 392
+@position notification_service 836 392
+@position order_db 410 606
+@position payment_db 594 610
+@position analytics_db 226 605
+@position message_queue 712 210
+@position notification_queue 857 118
+@position legacy_auth 456 66
+@position fraud_detect 882 548
+@position __meta__ 42 720
