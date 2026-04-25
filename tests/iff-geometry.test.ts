@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { iffFlowStyle, iffNodeEdge } from '../src/iff/renderer';
+import { iffFlowStyle, iffLinkMarkers, iffNodeEdge } from '../src/iff/renderer';
 import { elementBounds, getBorderStyle, PROCESS_H, PROCESS_W, STORE_H, STORE_W } from '../src/iff/shapes';
 import type { FlowType } from '../src/types';
 import type { IFFProcess, IFFStore } from '../src/iff/types';
@@ -55,6 +55,11 @@ describe('iff geometry helpers', () => {
   it('falls back to solid styling for undeclared flow types', () => {
     expect(iffFlowStyle('sync', undefined)).toEqual({ dashArray: null, strokeWidth: 1.5 });
     expect(iffFlowStyle(undefined, undefined)).toEqual({ dashArray: null, strokeWidth: 1.5 });
+  });
+
+  it('maps link direction to SVG marker placement', () => {
+    expect(iffLinkMarkers('unidirectional')).toEqual({ markerStart: null, markerEnd: 'url(#iff-arrow)' });
+    expect(iffLinkMarkers('bidirectional')).toEqual({ markerStart: 'url(#iff-arrow)', markerEnd: 'url(#iff-arrow)' });
   });
 
   it('uses dotted borders for new and X markers for decommissioned', () => {

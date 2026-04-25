@@ -30,7 +30,7 @@ store ext_ref [reference] [label:"External Reference Data"]
 process mobile_cache [SystemB] [label:"Mobile App Cache"] [unchanged]
 
 link cdp -> analytics_dw : ingest [flow:batch]
-link ext_ref -> cdp_enricher : enrich [flow:sync]
+link ext_ref <-> cdp_enricher : enrich [flow:sync]
 link segment_db -> mobile_cache : serve [flow:sync]
 
 @position cis 384 127

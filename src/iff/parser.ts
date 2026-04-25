@@ -144,6 +144,38 @@ function inferFlowType(relationship: IFFRelationship): string | undefined {
   }
 }
 
+function parseLinkEndpointPart(
+  rest: string,
+  lineNum: number,
+  errors: ParseError[],
+): { from: string; to: string; direction: IFFLink['direction']; afterArrow: string } | null {
+  const matches = [...rest.matchAll(/<->|->|<-/g)].map(match => ({
+    token: match[0],
+    index: match.index ?? -1,
+    direction: match[0] === '<->' ? 'bidirectional' as const : 'unidirectional' as const,
+  }));
+
+  if (matches.length === 0) {
+    errors.push({ line: lineNum, message: 'link requires one of "->", "<-", or "<->" between from and to' });
+    return null;
+  }
+  if (matches.length > 1) {
+    errors.push({ line: lineNum, message: 'link must contain exactly one direction operator: "->", "<-", or "<->"' });
+    return null;
+  }
+
+  const match = matches[0];
+  const left = rest.slice(0, match.index).trim();
+  const afterArrow = rest.slice(match.index + match.token.length).trim();
+  const colonIdx = afterArrow.indexOf(':');
+  const right = (colonIdx === -1 ? afterArrow : afterArrow.slice(0, colonIdx)).trim();
+
+  if (match.token === '<-') {
+    return { from: right, to: left, direction: match.direction, afterArrow };
+  }
+  return { from: left, to: right, direction: match.direction, afterArrow };
+}
+
 export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
   let idCounter = 0;
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`;
@@ -400,21 +432,16 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
       }
 
       case 'link': {
-        const arrowIdx = rest.indexOf('->');
-        if (arrowIdx === -1) {
-          errors.push({ line: lineNum, message: 'link requires "->" between from and to' });
-          break;
-        }
+        const endpointPart = parseLinkEndpointPart(rest, lineNum, errors);
+        if (!endpointPart) break;
 
-        const from = rest.slice(0, arrowIdx).trim();
-        const afterArrow = rest.slice(arrowIdx + 2).trim();
+        const { from, to, direction, afterArrow } = endpointPart;
         const colonIdx = afterArrow.indexOf(':');
         if (colonIdx === -1) {
           errors.push({ line: lineNum, message: 'link requires ":" before relationship' });
           break;
         }
 
-        const to = afterArrow.slice(0, colonIdx).trim();
         const afterColon = afterArrow.slice(colonIdx + 1).trim();
         const bracketIdx = afterColon.indexOf('[');
         const relationship = (bracketIdx === -1 ? afterColon : afterColon.slice(0, bracketIdx)).trim().toLowerCase();
@@ -438,7 +465,16 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
           }
         }
 
-        links.push({ kind: 'link', id: nextId('link'), from, to, relationship: relationship as IFFRelationship, flowType, flowTypeExplicit });
+        links.push({
+          kind: 'link',
+          id: nextId('link'),
+          from,
+          to,
+          direction,
+          relationship: relationship as IFFRelationship,
+          flowType,
+          flowTypeExplicit,
+        });
         break;
       }
 

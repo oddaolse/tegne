@@ -245,6 +245,7 @@ process syncer   [SystemA]   [label:"Sync Service"]
 
 link crm      -> syncer : query     [flow:sync]
 link syncer   -> cdp    : replicate [flow:batch]
+link crm      <-> cdp    : merge     [flow:sync]
 
 group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   store crm [master]

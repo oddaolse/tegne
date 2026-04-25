@@ -5,6 +5,7 @@ export type { Position } from '../types';  // re-export for convenience within i
 export type IFFRelationship = 'replicate' | 'publish' | 'subscribe' | 'ingest' | 'derive' | 'aggregate' | 'enrich' | 'merge' | 'serve' | 'query';
 export type IFFState        = 'current' | 'new' | 'changing' | 'decommissioned';
 export type IFFLabelCorner  = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
+export type IFFLinkDirection = 'unidirectional' | 'bidirectional';
 
 export interface IFFNodeBase extends Position {
   id:    string;
@@ -27,6 +28,7 @@ export interface IFFLink {
   id:           string;
   from:         string;
   to:           string;
+  direction:    IFFLinkDirection;
   relationship: IFFRelationship;
   flowType?:    string;
   flowTypeExplicit?: boolean;
