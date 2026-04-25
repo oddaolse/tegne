@@ -342,24 +342,32 @@ connect   LegacyAuth  ->   OrderSvc     : SOAP
 
 ### Purpose
 
-For data architects and engineers to document how data flows between stores in a system landscape. Answers questions like: where does data originate, how is it replicated or derived, and which systems consume it.
+For data architects and engineers to document how data flows between persistent stores and active processes in a system landscape. Answers questions like: where does data originate, which processes transform it, how is it replicated or derived, and which consumers are served.
 
 ### Element Types
 
-There is one element type: `store`. It represents any data store — a database, a stream, a file, a mart, a cache, or any other place data persists.
+There are two node types:
+- `store` — a persistent data container such as a database, file, stream, warehouse, or cache
+- `process` — an active component such as a service, batch job, or application
 
 ```
-store <id> [<role>] [<state>] [label:"Human Readable Name"]
+store <id> [<location-type>] [<state>] [label:"Human Readable Name"]
+process <id> [<system>] [<state>] [label:"Human Readable Name"]
 ```
 
 - `<id>` — unique identifier (no spaces)
-- `[<role>]` — required; controls fill colour (see Roles table)
+- `[<location-type>]` — required for stores; controls fill colour (see Location Types)
+- `[<system>]` — required for processes unless inherited from a parent group
 - `[<state>]` — optional; controls border style (default: current)
 - `[label:"..."]` — optional; display name; defaults to `<id>` if omitted
 
-### Roles
+Visual representation:
+- `store` — classical database drum
+- `process` — square
 
-The role describes the data governance position of the store.
+### Location Types
+
+The location type describes the governance position of a store.
 
 | Role          | Meaning                                              |
 |---------------|------------------------------------------------------|
@@ -371,45 +379,72 @@ The role describes the data governance position of the store.
 | `reference`   | Stable lookup / code data (e.g. country codes)       |
 | `consumer`    | Read-only downstream sink; does not feed others      |
 
+### Systems
+
+Processes are coloured by system. Systems are declared explicitly:
+
+```
+@systems
+  SystemA blue
+  SystemB teal
+```
+
 ### Element State
 
 Same lifecycle states as the Integration Diagram.
 
 | State                | Border style            |
 |----------------------|-------------------------|
-| *(absent — current)* | Solid, normal weight    |
-| `[new]`              | Solid, thick            |
+| *(absent — current)* | Solid                   |
+| `[unchanged]`        | Alias for current       |
+| `[new]`              | Dotted                  |
 | `[changing]`         | Dashed                  |
-| `[decommissioned]`   | Dotted                  |
+| `[decommissioned]`   | Solid with X marker     |
 
 ### Links
 
 ```
-link <from> -> <to> : <relationship>
+link <from> -> <to> : <relationship> [flow:<type>]
 ```
 
-One link per line. The relationship is a single keyword describing the data movement.
+One link per line. Links may connect store→store, store→process, process→store, or process→process.
+`[flow:<type>]` is optional; if omitted, the parser infers a default flow type for common relationships.
 
 | Relationship | Meaning                                                   |
 |--------------|-----------------------------------------------------------|
 | `replicate`  | Byte-for-byte copy kept in sync                           |
 | `publish`    | Events pushed to a broker or stream                       |
+| `subscribe`  | Event consumer or stream subscriber                       |
 | `ingest`     | Bulk load or batch import                                 |
 | `derive`     | Transform or compute a new dataset from the source        |
 | `aggregate`  | Roll up or combine multiple sources into one              |
 | `enrich`     | Add fields from the source to an existing dataset         |
 | `merge`      | Reconcile two or more stores into one                     |
 | `serve`      | Expose data to a downstream consumer (API, query, export) |
+| `query`      | Synchronous read from another node                        |
+
+Flow types are declared explicitly:
+
+```
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+```
 
 ### Groupings
 
-Same syntax as ID groups. Declares a named boundary rectangle around related stores.
+Declares a named boundary rectangle around related stores and processes.
 
 ```
-group <id> <label> [corner:upper-left|upper-right|lower-left|lower-right]
+group <id> <label> [system:<name>] [corner:upper-left|upper-right|lower-left|lower-right]
   store declarations...
+  process declarations...
+  link declarations...
 end
 ```
+
+If `group [system:<name>]` is present, contained processes inherit that system unless they define one locally.
 
 ### DSL Example
 
@@ -417,30 +452,47 @@ end
 @type     infoflow
 @name     Customer Information Landscape
 @version  1.0
-@author   Jane Smith
-@date     2026-04-11
+@author   Architecture Team
 
-group customer_domain Customer Domain [label:upper-left]
+@location-types
+  master blue
+  replica cyan
+  derived green
+  aggregate purple
+  reference grey
+  consumer grey
+
+@systems
+  SystemA blue
+  SystemB teal
+
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
+group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
 store crm        [master]    [label:"CRM System"]
-store cdp        [golden]    [label:"Customer Data Platform"]
-store loyalty_db [replica]   [label:"Loyalty DB"]
+store cdp        [replica]   [changing] [label:"Customer Data Platform"]
+process syncer   [label:"Sync Service"]
 end
 
-group analytics Analytics [label:upper-right]
+group analytics "Analytics" [system:SystemB] [corner:upper-right]
 store analytics_dw [aggregate] [label:"Analytics Warehouse"]
 store segment_db   [derived]   [label:"Segment Store"]
+process segment_engine [changing] [label:"Segment Engine"]
 end
 
 store ext_ref    [reference] [label:"External Reference Data"]
-store mobile_app [consumer]  [label:"Mobile App Cache"]
+process mobile_app [SystemB] [label:"Mobile App Cache"]
 
-link crm          -> cdp           : publish
-link cdp          -> loyalty_db    : replicate
-link cdp          -> analytics_dw  : ingest
-link analytics_dw -> segment_db    : derive
-link ext_ref      -> cdp           : enrich
-link cdp          -> mobile_app    : serve
-link segment_db   -> mobile_app    : serve
+link crm            -> syncer         : query     [flow:sync]
+link syncer         -> cdp            : replicate [flow:batch]
+link cdp            -> analytics_dw   : ingest    [flow:batch]
+link analytics_dw   -> segment_db     : derive    [flow:async]
+link ext_ref        -> segment_engine : enrich    [flow:sync]
+link segment_engine -> segment_db     : derive    [flow:async]
+link segment_db     -> mobile_app     : serve     [flow:sync]
 ```
 
 ---

@@ -1,32 +1,50 @@
 import * as d3 from 'd3';
-import type { IFFModel, IFFStore, IFFGroup, IFFLabelCorner, IFFState, Position } from './types';
+import type {
+  IFFModel, IFFNode, IFFStore, IFFProcess, IFFGroup, IFFLabelCorner, IFFState, Position,
+} from './types';
 import { getTheme, getLocationColour } from '../themes';
+import type { FlowType, LocationType, SystemType } from '../types';
 import type { IFFTheme } from '../themes';
 import { pageRect } from '../sd/renderer';
-import { STORE_W, STORE_H, elementBounds, getBorderStyle, drawStore } from './shapes';
+import {
+  DRUM_RIM_H,
+  PROCESS_H,
+  PROCESS_W,
+  STORE_H,
+  STORE_W,
+  drawNode,
+  elementBounds,
+  getBorderStyle,
+} from './shapes';
 
-// ── Group geometry ────────────────────────────────────────────────────────────
-
-const GROUP_PADDING   = 40;
+const GROUP_PADDING = 40;
 const GROUP_LABEL_PAD = 12;
 const GROUP_FONT_SIZE = 12;
 
 interface GroupRect { x: number; y: number; w: number; h: number; }
+type IffSvgSel = d3.Selection<SVGSVGElement, unknown, null, undefined>;
+
+function getNode(model: IFFModel, id: string): IFFNode | undefined {
+  return model.nodes.find(node => node.id === id);
+}
 
 function computeGroupRect(group: IFFGroup, model: IFFModel): GroupRect {
   const members = group.members
-    .map(id => model.stores.find(s => s.id === id))
-    .filter((s): s is IFFStore => !!s);
+    .map(id => getNode(model, id))
+    .filter((node): node is IFFNode => !!node);
 
   if (members.length === 0) return { x: 0, y: 0, w: 120, h: 80 };
 
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const store of members) {
-    const { hw, hh } = elementBounds(store);
-    minX = Math.min(minX, store.x - hw);
-    minY = Math.min(minY, store.y - hh);
-    maxX = Math.max(maxX, store.x + hw);
-    maxY = Math.max(maxY, store.y + hh);
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const member of members) {
+    const { hw, hh } = elementBounds(member);
+    minX = Math.min(minX, member.x - hw);
+    minY = Math.min(minY, member.y - hh);
+    maxX = Math.max(maxX, member.x + hw);
+    maxY = Math.max(maxY, member.y + hh);
   }
 
   return {
@@ -40,30 +58,55 @@ function computeGroupRect(group: IFFGroup, model: IFFModel): GroupRect {
 function groupLabelAttrs(gr: GroupRect, corner: IFFLabelCorner): { x: number; y: number; anchor: string } {
   switch (corner) {
     case 'upper-left':  return { x: gr.x + GROUP_LABEL_PAD,        y: gr.y + GROUP_LABEL_PAD + GROUP_FONT_SIZE, anchor: 'start' };
-    case 'upper-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD, y: gr.y + GROUP_LABEL_PAD + GROUP_FONT_SIZE, anchor: 'end'   };
-    case 'lower-left':  return { x: gr.x + GROUP_LABEL_PAD,        y: gr.y + gr.h - GROUP_LABEL_PAD,            anchor: 'start' };
-    case 'lower-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD, y: gr.y + gr.h - GROUP_LABEL_PAD,            anchor: 'end'   };
+    case 'upper-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD, y: gr.y + GROUP_LABEL_PAD + GROUP_FONT_SIZE, anchor: 'end' };
+    case 'lower-left':  return { x: gr.x + GROUP_LABEL_PAD,        y: gr.y + gr.h - GROUP_LABEL_PAD, anchor: 'start' };
+    case 'lower-right': return { x: gr.x + gr.w - GROUP_LABEL_PAD, y: gr.y + gr.h - GROUP_LABEL_PAD, anchor: 'end' };
   }
 }
 
-// ── Geometry ──────────────────────────────────────────────────────────────────
-
-function storeEdge(store: IFFStore, tx: number, ty: number): Position {
-  const dx = tx - store.x, dy = ty - store.y;
-  if (dx === 0 && dy === 0) return { x: store.x, y: store.y };
-  const hw = STORE_W / 2, hh = STORE_H / 2;
-  const t  = Math.abs(dx) * hh > Math.abs(dy) * hw
-    ? hw / Math.abs(dx)
-    : hh / Math.abs(dy);
-  return { x: store.x + dx * t, y: store.y + dy * t };
+function processEdge(node: IFFProcess, tx: number, ty: number): Position {
+  const dx = tx - node.x;
+  const dy = ty - node.y;
+  if (dx === 0 && dy === 0) return { x: node.x, y: node.y };
+  const hw = PROCESS_W / 2;
+  const hh = PROCESS_H / 2;
+  const t = Math.abs(dx) * hh > Math.abs(dy) * hw ? hw / Math.abs(dx) : hh / Math.abs(dy);
+  return { x: node.x + dx * t, y: node.y + dy * t };
 }
 
-// ── Marker definitions ────────────────────────────────────────────────────────
+function storeEdge(node: IFFStore, tx: number, ty: number): Position {
+  const dx = tx - node.x;
+  const dy = ty - node.y;
+  if (dx === 0 && dy === 0) return { x: node.x, y: node.y };
 
-function defineDefsSection(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  theme: IFFTheme,
-): void {
+  const hw = STORE_W / 2;
+  const rectHalfHeight = (STORE_H - DRUM_RIM_H) / 2;
+  if (Math.abs(dx) * rectHalfHeight > Math.abs(dy) * hw) {
+    return { x: node.x + Math.sign(dx) * hw, y: node.y + dy * (hw / Math.abs(dx)) };
+  }
+
+  const ellipseRy = STORE_H / 2;
+  const denom = Math.sqrt((dx * dx) / (hw * hw) + (dy * dy) / (ellipseRy * ellipseRy));
+  return { x: node.x + dx / denom, y: node.y + dy / denom };
+}
+
+export function iffNodeEdge(node: IFFNode, tx: number, ty: number): Position {
+  return node.kind === 'process' ? processEdge(node, tx, ty) : storeEdge(node, tx, ty);
+}
+
+export function iffFlowStyle(flowType: string | undefined, declaredFlowTypes: FlowType[] | undefined): { dashArray: string | null; strokeWidth: number } {
+  const style = declaredFlowTypes?.find(entry => entry.name === flowType)?.style ?? flowType;
+  switch ((style ?? '').toLowerCase()) {
+    case 'dashed':
+      return { dashArray: '6,4', strokeWidth: 1.5 };
+    case 'thick':
+      return { dashArray: null, strokeWidth: 3 };
+    default:
+      return { dashArray: null, strokeWidth: 1.5 };
+  }
+}
+
+function defineDefsSection(svg: IffSvgSel, theme: IFFTheme): void {
   const defs = svg.append('defs');
 
   defs.append('marker')
@@ -90,34 +133,29 @@ function defineDefsSection(
   }
 }
 
-// ── Link drawing ──────────────────────────────────────────────────────────────
-
-function drawLinks(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  model: IFFModel,
-  theme: IFFTheme,
-): void {
+function drawLinks(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
   for (const link of model.links) {
-    const fromStore = model.stores.find(s => s.id === link.from);
-    const toStore   = model.stores.find(s => s.id === link.to);
-    if (!fromStore || !toStore) continue;
+    const fromNode = getNode(model, link.from);
+    const toNode = getNode(model, link.to);
+    if (!fromNode || !toNode) continue;
 
-    const fromEdge = storeEdge(fromStore, toStore.x, toStore.y);
-    const toEdge   = storeEdge(toStore,   fromStore.x, fromStore.y);
+    const fromEdge = iffNodeEdge(fromNode, toNode.x, toNode.y);
+    const toEdge = iffNodeEdge(toNode, fromNode.x, fromNode.y);
+    const style = iffFlowStyle(link.flowType, model.meta.flowTypes);
 
     const g = svg.append('g').attr('class', 'iff-link').attr('data-id', link.id);
 
-    g.append('line')
+    const line = g.append('line')
       .attr('x1', fromEdge.x).attr('y1', fromEdge.y)
       .attr('x2', toEdge.x).attr('y2', toEdge.y)
       .attr('stroke', theme.connStroke)
-      .attr('stroke-width', 1.5)
+      .attr('stroke-width', style.strokeWidth)
       .attr('marker-end', 'url(#iff-arrow)');
+    if (style.dashArray) line.attr('stroke-dasharray', style.dashArray);
 
     const mx = (fromEdge.x + toEdge.x) / 2;
     const my = (fromEdge.y + toEdge.y) / 2;
-
-    const linkLabel = link.transport ? `${link.relationship} [${link.transport}]` : link.relationship;
+    const linkLabel = link.flowType ? `${link.relationship} [${link.flowType}]` : link.relationship;
 
     g.append('text')
       .attr('x', mx).attr('y', my - 6)
@@ -129,67 +167,70 @@ function drawLinks(
   }
 }
 
-// ── Store drawing ─────────────────────────────────────────────────────────────
+function nodeFill(node: IFFNode, model: IFFModel, theme: IFFTheme): string {
+  if (node.kind === 'store') {
+    const locationType = model.meta.locationTypes?.find(entry => entry.name === node.locationType);
+    return locationType
+      ? getLocationColour(theme.palette, locationType.colour, node.state)
+      : theme.palette.grey[node.state];
+  }
 
-function drawStores(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  model: IFFModel,
-  theme: IFFTheme,
-): void {
-  for (const store of model.stores) {
-    const locationType = model.meta.locationTypes?.find(lt => lt.name === store.locationType);
-    const fill   = locationType
-      ? getLocationColour(theme.palette, locationType.colour, store.state)
-      : theme.palette.grey[store.state];
-    const border = getBorderStyle(store.state);
+  const systemType = model.meta.systemTypes?.find(entry => entry.name === node.system);
+  return systemType
+    ? getLocationColour(theme.palette, systemType.colour, node.state)
+    : theme.palette.grey[node.state];
+}
+
+function nodeBadgeLabel(node: IFFNode): string {
+  return node.kind === 'store' ? node.locationType : node.system;
+}
+
+function drawNodes(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
+  for (const node of model.nodes) {
+    const fill = nodeFill(node, model, theme);
+    const border = getBorderStyle(node.state);
 
     const g = svg.append('g')
       .attr('class', 'iff-node')
-      .attr('data-id', store.id)
-      .attr('transform', `translate(${store.x},${store.y})`);
+      .attr('data-id', node.id)
+      .attr('data-kind', node.kind)
+      .attr('transform', `translate(${node.x},${node.y})`);
 
     if (theme.glow) g.attr('filter', 'url(#iff-glow)');
 
-    drawStore(g, fill, border, theme.borderStroke);
+    drawNode(g, node, fill, border, theme.borderStroke);
 
     g.append('text')
-      .attr('x', 0).attr('y', 0)
+      .attr('x', 0).attr('y', node.kind === 'process' ? -4 : -2)
       .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
       .attr('fill', theme.labelText)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '11px')
-      .text(store.label);
+      .text(node.label);
 
-    // Location-type badge — small label below store
     g.append('text')
-      .attr('x', 0).attr('y', STORE_H / 2 + 14)
+      .attr('x', 0).attr('y', node.kind === 'process' ? PROCESS_H / 2 + 14 : STORE_H / 2 + 14)
       .attr('text-anchor', 'middle')
       .attr('fill', fill)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '10px')
       .attr('font-style', 'italic')
-      .text(store.locationType);
+      .text(nodeBadgeLabel(node));
 
     if (model.meta.showIds) {
       g.append('text')
-        .attr('x', 0).attr('y', STORE_H / 2 + 28)
+        .attr('x', 0).attr('y', node.kind === 'process' ? PROCESS_H / 2 + 28 : STORE_H / 2 + 28)
         .attr('text-anchor', 'middle')
         .attr('fill', theme.metaBox.text)
         .attr('font-family', 'Courier New, Courier, monospace')
         .attr('font-size', '9px')
         .attr('font-style', 'italic')
-        .text(`[${store.id}]`);
+        .text(`[${node.id}]`);
     }
   }
 }
 
-// ── Group drawing ─────────────────────────────────────────────────────────────
-
-function drawGroups(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  model: IFFModel,
-  theme: IFFTheme,
-): void {
+function drawGroups(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
   for (const group of model.groups) {
     if (group.members.length === 0) continue;
 
@@ -211,6 +252,7 @@ function drawGroups(
       .attr('stroke-width', 1.5)
       .attr('stroke-dasharray', '8,4');
 
+    const label = group.system ? `${group.label} [${group.system}]` : group.label;
     g.append('text')
       .attr('class', 'iff-group-label')
       .attr('x', lp.x).attr('y', lp.y)
@@ -219,19 +261,15 @@ function drawGroups(
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', `${GROUP_FONT_SIZE}px`)
       .attr('font-style', 'italic')
-      .text(group.label);
+      .text(label);
   }
 }
 
-function updateGroupRects(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  model: IFFModel,
-): void {
+function updateGroupRects(svg: IffSvgSel, model: IFFModel): void {
   for (const group of model.groups) {
     if (group.members.length === 0) continue;
-
-    const gr  = computeGroupRect(group, model);
-    const lp  = groupLabelAttrs(gr, group.labelCorner);
+    const gr = computeGroupRect(group, model);
+    const lp = groupLabelAttrs(gr, group.labelCorner);
     const sel = svg.select<SVGGElement>(`g.iff-group[data-id="${group.id}"]`);
     if (sel.empty()) continue;
 
@@ -245,24 +283,20 @@ function updateGroupRects(
   }
 }
 
-// ── Metadata box ──────────────────────────────────────────────────────────────
-
-function drawMetaBox(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  model: IFFModel,
-  theme: IFFTheme,
-): void {
+function drawMetaBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
   const { meta } = model;
   const lines: string[] = [];
-  if (meta.name)    lines.push(`name     ${meta.name}`);
+  if (meta.name) lines.push(`name     ${meta.name}`);
   if (meta.version) lines.push(`version  ${meta.version}`);
   lines.push(`date     ${meta.date}`);
-  if (meta.author)  lines.push(`author   ${meta.author}`);
-  lines.push(`type     information flow`);
+  if (meta.author) lines.push(`author   ${meta.author}`);
+  lines.push('type     information flow');
 
-  const PAD = 12, LINE_H = 17, BOX_W = 230;
+  const PAD = 12;
+  const LINE_H = 17;
+  const BOX_W = 230;
   const BOX_H = lines.length * LINE_H + PAD * 2;
-  const p     = pageRect(meta.orientation, meta.size);
+  const p = pageRect(meta.orientation, meta.size);
   const saved = model.savedPositions['__meta__'];
   const BOX_X = saved?.x ?? (p.x + 16);
   const BOX_Y = saved?.y ?? (p.y + p.h - BOX_H - 16);
@@ -290,41 +324,117 @@ function drawMetaBox(
   });
 }
 
-// ── Legend box ────────────────────────────────────────────────────────────────
-
 const STATE_ORDER: IFFState[] = ['current', 'new', 'changing', 'decommissioned'];
 
-function drawIffLegendBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
+function drawLegendSectionSwatchRect(
+  g: d3.Selection<SVGGElement, unknown, null, undefined>,
+  x: number,
+  y: number,
+  fill: string,
+  state: IFFState,
+  theme: IFFTheme,
+): void {
+  const border = getBorderStyle(state);
+  const rect = g.append('rect')
+    .attr('x', x)
+    .attr('y', y)
+    .attr('width', 22)
+    .attr('height', 14)
+    .attr('rx', 2)
+    .attr('fill', fill)
+    .attr('fill-opacity', border.fillOpacity)
+    .attr('stroke', theme.borderStroke)
+    .attr('stroke-width', 1);
+  if (border.dashArray) rect.attr('stroke-dasharray', border.dashArray);
+  if (border.showCross) {
+    g.append('line')
+      .attr('x1', x).attr('y1', y)
+      .attr('x2', x + 22).attr('y2', y + 14)
+      .attr('stroke', theme.borderStroke)
+      .attr('stroke-width', 1.5);
+    g.append('line')
+      .attr('x1', x).attr('y1', y + 14)
+      .attr('x2', x + 22).attr('y2', y)
+      .attr('stroke', theme.borderStroke)
+      .attr('stroke-width', 1.5);
+  }
+}
+
+function uniqueStoreEntries(model: IFFModel): Array<{ locationType: string; state: IFFState }> {
   const seen = new Set<string>();
   const entries: Array<{ locationType: string; state: IFFState }> = [];
   for (const store of model.stores) {
     const key = `${store.locationType}:${store.state}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      entries.push({ locationType: store.locationType, state: store.state });
-    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ locationType: store.locationType, state: store.state });
   }
-  if (entries.length === 0) return;
-
-  // Sort by location-type declaration order, then by state
-  const locationTypeOrder = (model.meta.locationTypes ?? []).map(lt => lt.name);
+  const locationTypeOrder = (model.meta.locationTypes ?? []).map(entry => entry.name);
   entries.sort((a, b) => {
     const ai = locationTypeOrder.indexOf(a.locationType);
     const bi = locationTypeOrder.indexOf(b.locationType);
     const pd = (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-    if (pd !== 0) return pd;
-    return STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state);
+    return pd !== 0 ? pd : STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state);
   });
+  return entries;
+}
 
-  const PAD      = 12;
-  const LINE_H   = 22;
-  const SWATCH_W = 22;
-  const SWATCH_H = 14;
-  const BOX_W    = 220;
-  const HEADER_H = LINE_H;
-  const BOX_H    = PAD * 2 + HEADER_H + entries.length * LINE_H;
+function uniqueProcessEntries(model: IFFModel): Array<{ system: string; state: IFFState }> {
+  const seen = new Set<string>();
+  const entries: Array<{ system: string; state: IFFState }> = [];
+  for (const process of model.processes) {
+    const key = `${process.system}:${process.state}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ system: process.system, state: process.state });
+  }
+  const systemOrder = (model.meta.systemTypes ?? []).map(entry => entry.name);
+  entries.sort((a, b) => {
+    const ai = systemOrder.indexOf(a.system);
+    const bi = systemOrder.indexOf(b.system);
+    const pd = (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    return pd !== 0 ? pd : STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state);
+  });
+  return entries;
+}
 
-  const p     = pageRect(model.meta.orientation, model.meta.size);
+function uniqueFlowEntries(model: IFFModel): string[] {
+  const flowOrder = (model.meta.flowTypes ?? []).map(entry => entry.name);
+  const seen = new Set<string>();
+  const entries: string[] = [];
+  for (const link of model.links) {
+    if (!link.flowType || seen.has(link.flowType)) continue;
+    seen.add(link.flowType);
+    entries.push(link.flowType);
+  }
+  entries.sort((a, b) => {
+    const ai = flowOrder.indexOf(a);
+    const bi = flowOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+  return entries;
+}
+
+function drawIffLegendBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): void {
+  const storeEntries = uniqueStoreEntries(model);
+  const processEntries = uniqueProcessEntries(model);
+  const flowEntries = uniqueFlowEntries(model);
+  if (storeEntries.length === 0 && processEntries.length === 0 && flowEntries.length === 0) return;
+
+  const PAD = 12;
+  const LINE_H = 22;
+  const SECTION_H = 18;
+  const BOX_W = 260;
+  let contentRows = 1;
+  if (storeEntries.length > 0) contentRows += 1 + storeEntries.length;
+  if (processEntries.length > 0) contentRows += 1 + processEntries.length;
+  if (flowEntries.length > 0) contentRows += 1 + flowEntries.length;
+  const BOX_H = PAD * 2 + contentRows * LINE_H + 8;
+
+  const p = pageRect(model.meta.orientation, model.meta.size);
   const saved = model.savedPositions['__legend__'];
   const BOX_X = saved?.x ?? (p.x + p.w - BOX_W - 16);
   const BOX_Y = saved?.y ?? (p.y + 16);
@@ -342,59 +452,91 @@ function drawIffLegendBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): voi
     .attr('stroke', theme.metaBox.stroke)
     .attr('stroke-width', 1);
 
+  let rowY = PAD;
   g.append('text')
-    .attr('x', PAD).attr('y', PAD + 11)
+    .attr('x', PAD).attr('y', rowY + 11)
     .attr('fill', theme.metaBox.text)
     .attr('font-family', 'Courier New, Courier, monospace')
     .attr('font-size', '11px')
     .attr('font-style', 'italic')
     .text('Legend');
+  rowY += LINE_H;
 
-  entries.forEach((entry, i) => {
-    const rowY = PAD + HEADER_H + i * LINE_H;
-    const border = getBorderStyle(entry.state);
-    const locationType = model.meta.locationTypes?.find(lt => lt.name === entry.locationType);
-    const fill = locationType
-      ? getLocationColour(theme.palette, locationType.colour, entry.state)
-      : theme.palette.grey[entry.state];
-
-    const swatch = g.append('rect')
-      .attr('x', PAD)
-      .attr('y', rowY + (LINE_H - SWATCH_H) / 2)
-      .attr('width', SWATCH_W)
-      .attr('height', SWATCH_H)
-      .attr('rx', 2)
-      .attr('fill', fill)
-      .attr('fill-opacity', border.fillOpacity)
-      .attr('stroke', theme.borderStroke)
-      .attr('stroke-width', 1);
-    if (border.dashArray) swatch.attr('stroke-dasharray', border.dashArray);
-
-    const stateLabel = entry.state === 'current' ? '' : ` · ${entry.state}`;
+  const drawSectionHeader = (text: string): void => {
     g.append('text')
-      .attr('x', PAD + SWATCH_W + 8)
-      .attr('y', rowY + LINE_H / 2 + 4)
+      .attr('x', PAD).attr('y', rowY + 11)
       .attr('fill', theme.metaBox.text)
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '11px')
-      .text(`${entry.locationType}${stateLabel}`);
-  });
+      .text(text);
+    rowY += SECTION_H;
+  };
+
+  if (storeEntries.length > 0) {
+    drawSectionHeader('Stores');
+    for (const entry of storeEntries) {
+      const locationType = model.meta.locationTypes?.find((item: LocationType) => item.name === entry.locationType);
+      const fill = locationType ? getLocationColour(theme.palette, locationType.colour, entry.state) : theme.palette.grey[entry.state];
+      drawLegendSectionSwatchRect(g, PAD, rowY + 2, fill, entry.state, theme);
+      const stateLabel = entry.state === 'current' ? '' : ` · ${entry.state}`;
+      g.append('text')
+        .attr('x', PAD + 30).attr('y', rowY + 13)
+        .attr('fill', theme.metaBox.text)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', '11px')
+        .text(`${entry.locationType}${stateLabel}`);
+      rowY += LINE_H;
+    }
+  }
+
+  if (processEntries.length > 0) {
+    drawSectionHeader('Processes');
+    for (const entry of processEntries) {
+      const systemType = model.meta.systemTypes?.find((item: SystemType) => item.name === entry.system);
+      const fill = systemType ? getLocationColour(theme.palette, systemType.colour, entry.state) : theme.palette.grey[entry.state];
+      drawLegendSectionSwatchRect(g, PAD, rowY + 2, fill, entry.state, theme);
+      const stateLabel = entry.state === 'current' ? '' : ` · ${entry.state}`;
+      g.append('text')
+        .attr('x', PAD + 30).attr('y', rowY + 13)
+        .attr('fill', theme.metaBox.text)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', '11px')
+        .text(`${entry.system}${stateLabel}`);
+      rowY += LINE_H;
+    }
+  }
+
+  if (flowEntries.length > 0) {
+    drawSectionHeader('Flows');
+    for (const flowName of flowEntries) {
+      const style = iffFlowStyle(flowName, model.meta.flowTypes);
+      const line = g.append('line')
+        .attr('x1', PAD).attr('y1', rowY + 9)
+        .attr('x2', PAD + 22).attr('y2', rowY + 9)
+        .attr('stroke', theme.connStroke)
+        .attr('stroke-width', style.strokeWidth);
+      if (style.dashArray) line.attr('stroke-dasharray', style.dashArray);
+      g.append('text')
+        .attr('x', PAD + 30).attr('y', rowY + 13)
+        .attr('fill', theme.metaBox.text)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', '11px')
+        .text(flowName);
+      rowY += LINE_H;
+    }
+  }
 }
-
-// ── Drag ──────────────────────────────────────────────────────────────────────
-
-type IffSvgSel = d3.Selection<SVGSVGElement, unknown, null, undefined>;
 
 export function attachIffDrag(svg: IffSvgSel, model: IFFModel, onDragEnd?: () => void): void {
   const drag = d3.drag<SVGGElement, unknown>()
     .on('drag', function (event) {
       const [x, y] = d3.pointer(event, svg.node()!);
-      const id    = d3.select(this).attr('data-id');
-      const store = model.stores.find(s => s.id === id);
-      if (!store) return;
-      store.x = x;
-      store.y = y;
-      model.savedPositions[store.id] = { x, y };
+      const id = d3.select(this).attr('data-id');
+      const node = getNode(model, id);
+      if (!node) return;
+      node.x = x;
+      node.y = y;
+      model.savedPositions[node.id] = { x, y };
       d3.select(this).attr('transform', `translate(${x},${y})`);
       iffRedrawLinks(svg, model);
     })
@@ -407,18 +549,18 @@ export function attachIffGroupDrag(svg: IffSvgSel, model: IFFModel, onDragEnd?: 
   const drag = d3.drag<SVGGElement, unknown>()
     .on('drag', function (event) {
       const groupId = d3.select(this).attr('data-id');
-      const group   = model.groups.find(g => g.id === groupId);
+      const group = model.groups.find(entry => entry.id === groupId);
       if (!group) return;
 
       const ev = event as d3.D3DragEvent<SVGGElement, unknown, unknown>;
       for (const memberId of group.members) {
-        const store = model.stores.find(s => s.id === memberId);
-        if (!store) continue;
-        store.x += ev.dx;
-        store.y += ev.dy;
-        model.savedPositions[store.id] = { x: store.x, y: store.y };
+        const node = getNode(model, memberId);
+        if (!node) continue;
+        node.x += ev.dx;
+        node.y += ev.dy;
+        model.savedPositions[node.id] = { x: node.x, y: node.y };
         svg.select<SVGGElement>(`g.iff-node[data-id="${memberId}"]`)
-          .attr('transform', `translate(${store.x},${store.y})`);
+          .attr('transform', `translate(${node.x},${node.y})`);
       }
       iffRedrawLinks(svg, model);
     })
@@ -432,7 +574,8 @@ export function attachIffLegendBoxDrag(
   model: { savedPositions: Record<string, Position> },
   onDragEnd?: () => void,
 ): void {
-  let cx = 0, cy = 0;
+  let cx = 0;
+  let cy = 0;
   const drag = d3.drag<SVGGElement, unknown>()
     .on('start', function () {
       const t = d3.select(this).attr('transform') ?? '';
@@ -451,8 +594,6 @@ export function attachIffLegendBoxDrag(
   svg.select<SVGGElement>('g.legend-box').call(drag);
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
 export function iffRender(svg: IffSvgSel, model: IFFModel): void {
   const theme = getTheme(model.meta.theme).iff;
 
@@ -468,7 +609,7 @@ export function iffRender(svg: IffSvgSel, model: IFFModel): void {
 
   drawGroups(svg, model, theme);
   drawLinks(svg, model, theme);
-  drawStores(svg, model, theme);
+  drawNodes(svg, model, theme);
   if (model.meta.legend !== false) drawIffLegendBox(svg, model, theme);
   drawMetaBox(svg, model, theme);
 }

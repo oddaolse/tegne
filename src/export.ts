@@ -80,8 +80,8 @@ export async function saveIFF(dslText: string, model: IFFModel): Promise<void> {
     .join('\n')
     .trimEnd();
 
-  let posLines = model.stores
-    .map(s => `@position ${s.id} ${Math.round(s.x)} ${Math.round(s.y)}`)
+  let posLines = model.nodes
+    .map(node => `@position ${node.id} ${Math.round(node.x)} ${Math.round(node.y)}`)
     .join('\n');
 
   const metaPos = model.savedPositions['__meta__'];
