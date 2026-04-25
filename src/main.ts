@@ -28,6 +28,11 @@ const btnRender   = document.getElementById('btn-render')  as HTMLButtonElement;
 const btnExport   = document.getElementById('btn-export')  as HTMLButtonElement;
 const btnConfig   = document.getElementById('btn-config')  as HTMLButtonElement;
 const btnHelp     = document.getElementById('btn-help')    as HTMLButtonElement;
+const configModal        = document.getElementById('config-modal')         as HTMLDivElement;
+const configCurrent      = document.getElementById('config-current-folder') as HTMLSpanElement;
+const configSelectBtn    = document.getElementById('config-modal-select')  as HTMLButtonElement;
+const configCancelBtn    = document.getElementById('config-modal-cancel')  as HTMLButtonElement;
+const configCloseBtn     = document.getElementById('config-modal-close')   as HTMLButtonElement;
 const btnZoomIn       = document.getElementById('btn-zoom-in')      as HTMLButtonElement;
 const btnZoomOut      = document.getElementById('btn-zoom-out')     as HTMLButtonElement;
 const btnZoomFit      = document.getElementById('btn-zoom-fit')     as HTMLButtonElement;
@@ -212,12 +217,31 @@ fileInput.addEventListener('change', () => {
   fileInput.value = '';
 });
 
-btnConfig.addEventListener('click', async () => {
+function openConfigModal(): void {
+  configCurrent.textContent = configuredCommonFolderName ?? '(none)';
+  configModal.classList.add('visible');
+}
+
+function closeConfigModal(): void {
+  configModal.classList.remove('visible');
+}
+
+btnConfig.addEventListener('click', () => {
   if (!('showDirectoryPicker' in window)) {
     alert('Config requires a browser with File System Access API support.');
     return;
   }
+  openConfigModal();
+});
 
+configCancelBtn.addEventListener('click', closeConfigModal);
+configCloseBtn.addEventListener('click', closeConfigModal);
+configModal.addEventListener('click', (e) => {
+  if (e.target === configModal) closeConfigModal();
+});
+
+configSelectBtn.addEventListener('click', async () => {
+  closeConfigModal();
   try {
     const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
     await saveCommonFolderHandle(dirHandle);

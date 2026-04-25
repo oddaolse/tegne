@@ -198,6 +198,81 @@
       border: none;
       border-top: 1px solid #313244;
     }
+
+    /* ── Config modal ── */
+    #config-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #config-modal.visible { display: flex; }
+
+    #config-modal-content {
+      width: 460px;
+      max-width: 90vw;
+      background: #1e1e2e;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      font-size: 12px;
+    }
+
+    #config-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #313244;
+      border-radius: 6px 6px 0 0;
+      user-select: none;
+    }
+    #config-modal-header span {
+      color: #cdd6f4;
+      letter-spacing: 0.04em;
+    }
+    #config-modal-close {
+      background: none;
+      border: none;
+      color: #585b70;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0 2px;
+      cursor: pointer;
+    }
+    #config-modal-close:hover { color: #cdd6f4; background: none; }
+
+    #config-modal-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: #a6adc8;
+      line-height: 1.6;
+    }
+    #config-modal-body code {
+      background: #181825;
+      border: 1px solid #313244;
+      border-radius: 3px;
+      padding: 0 4px;
+      color: #cdd6f4;
+    }
+    #config-current-folder {
+      color: #cdd6f4;
+    }
+
+    #config-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      padding: 10px 12px;
+      border-top: 1px solid #313244;
+    }
   </style>
 </head>
 <body>
@@ -225,6 +300,24 @@
       </div>
       <div id="canvas-container">
         <svg id="canvas" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="config-modal">
+    <div id="config-modal-content">
+      <div id="config-modal-header">
+        <span>Common files folder</span>
+        <button id="config-modal-close" title="Close">×</button>
+      </div>
+      <div id="config-modal-body">
+        <p>Tegne can resolve <code>@include</code> directives against a shared folder of common <code>.sd</code>, <code>.id</code>, <code>.iff</code>, and <code>.tm</code> files. Included files contribute dictionaries and display defaults; they do not add diagram elements or positions.</p>
+        <p>Selecting a folder grants Tegne read access in this browser. Your choice is remembered across sessions.</p>
+        <p>Current folder: <span id="config-current-folder">(none)</span></p>
+      </div>
+      <div id="config-modal-footer">
+        <button id="config-modal-cancel">Cancel</button>
+        <button id="config-modal-select">Select Folder…</button>
       </div>
     </div>
   </div>
