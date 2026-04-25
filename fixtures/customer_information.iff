@@ -4,16 +4,16 @@
 @author   Jane Doe
 @date     2026-04-11
 @size     a4
-@theme    dark
+@theme    light
 
 @location-types
   master blue
-  replica cyan
+  replica red
   derived green
-  aggregate purple
+  aggregate yellow
   golden orange
-  reference grey
-  consumer grey
+  reference cyan
+  consumer orange
 
 # Customer Domain group
 group customer_domain Customer Domain [corner:upper-left]
@@ -24,7 +24,7 @@ end
 
 # Analytics group
 group analytics Analytics [corner:upper-right]
-store analytics_dw [aggregate] [label:"Analytics Warehouse"]
+store analytics_dw [aggregate] [new] [label:"Analytics Warehouse"]
 store segment_db   [derived]   [label:"Segment Store"]
 end
 
@@ -43,7 +43,7 @@ link segment_db   -> mobile_app    : serve
 
 @position cis 183 260
 @position cdp 558 259
-@position loyalty_db 921 261
+@position loyalty_db 558 115
 @position analytics_dw 482 623
 @position segment_db 784 622
 @position ext_ref 210 421

@@ -1,0 +1,215 @@
+@type     sd
+@name     Norwegian Monetary Transmission Model
+@version  3.0
+@author   Claude — NEMO-inspired, multi-channel transmission
+@theme    light
+@size     a2
+@legend   on
+
+# ═══════════════════════════════════════════════════════════════
+# CLOUDS — systemgrenser
+# ═══════════════════════════════════════════════════════════════
+cloud Foreign_Prices      [source]
+cloud Oil_Gas_Price       [source]
+cloud Foreign_Rates       [source]
+cloud Geopolitical_Risk   [source]
+cloud FX_Market           [source]
+cloud Goods_Market        [source]
+cloud Labor_Market_In     [source]
+cloud Labor_Market_Out    [sink]
+cloud Credit_Market_In    [source]
+cloud Credit_Market_Out   [sink]
+cloud Construction_Sink   [sink]
+cloud Policy_Committee    [source]
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 1 — PENGEPOLITISK KJERNE
+# Styringsrenten, prisnivå og forventninger. Lukker Taylor-regel.
+# ═══════════════════════════════════════════════════════════════
+group policy_core Pengepolitisk kjerne [corner:upper-left]
+  stock Policy_Rate
+  stock Price_Level
+  stock Inflation_Expectations
+  aux   real_rate              <- Policy_Rate (+), Inflation_Expectations (-)
+  aux   rate_differential      <- Policy_Rate (+), Foreign_Rates (-)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 2 — VALUTAKANALEN
+# Norges Banks primærkanal i liten åpen økonomi.
+# ═══════════════════════════════════════════════════════════════
+group fx_channel Valutakanalen [corner:upper-right]
+  stock Krone_Index
+  aux   import_prices_nok      <- Krone_Index (-), Foreign_Prices (+), Oil_Gas_Price (+)
+  aux   export_competitiveness <- Krone_Index (-)
+  aux   frontfag_profit        <- export_competitiveness (+)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 3 — HUSHOLDNINGSSEKTOR
+# Gjeld, rentebelastning, disponibel inntekt og konsum.
+# Høyeste rentesensitivitet pga ~95% flytende boliglån.
+# ═══════════════════════════════════════════════════════════════
+group households Husholdninger [corner:lower-left]
+  stock Household_Debt
+  aux   mortgage_rate          <- Policy_Rate (+)
+  aux   debt_service_hh        <- mortgage_rate (+), Household_Debt (+)
+  aux   real_disposable_income <- Wage_Level (+), Price_Level (-), debt_service_hh (-)
+  aux   consumption            <- real_disposable_income (+)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 4 — ARBEIDSMARKED OG LØNNSDANNELSE
+# Phillips-kanal + frontfagsmodell + kompensasjonshypotese (R3)
+# ═══════════════════════════════════════════════════════════════
+group labor Arbeidsmarked [corner:lower-right]
+  stock Employment
+  stock Wage_Level
+  aux   unemployment           <- Employment (-)
+  aux   unit_labor_costs       <- Wage_Level (+)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 5 — BEDRIFTSSEKTOR (kostnadskanalen R2)
+# ═══════════════════════════════════════════════════════════════
+group business Bedrifter
+  stock Business_Debt
+  aux   business_rate          <- Policy_Rate (+)
+  aux   debt_service_bus       <- business_rate (+), Business_Debt (+)
+  aux   business_costs         <- debt_service_bus (+), Wage_Level (+)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 6 — BOLIG OG BYGG (mest rentesensitive)
+# ═══════════════════════════════════════════════════════════════
+group housing Bolig og bygg
+  stock House_Prices
+  stock Housing_Stock
+  aux   housing_demand         <- mortgage_rate (-), real_disposable_income (+)
+  aux   construction_activity  <- business_rate (-), House_Prices (+)
+  aux   rent_inflation         <- Housing_Stock (-), housing_demand (+)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 7 — OFFENTLIG SEKTOR (kommuner)
+# ═══════════════════════════════════════════════════════════════
+group public Offentlig sektor
+  stock Municipal_Debt
+  aux   municipal_rate         <- Policy_Rate (+)
+  aux   debt_service_muni      <- municipal_rate (+), Municipal_Debt (+)
+  aux   municipal_services     <- debt_service_muni (-)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# GROUP 8 — AGGREGERT AKTIVITET
+# Samler etterspørselskomponenter til produksjonsgap og 
+# innenlandsk inflasjon.
+# ═══════════════════════════════════════════════════════════════
+group aggregate Aggregert økonomi
+  aux   output_gap             <- consumption (+), construction_activity (+), export_competitiveness (+), municipal_services (+)
+  aux   domestic_inflation     <- unit_labor_costs (+), business_costs (+), rent_inflation (+)
+end
+
+# ═══════════════════════════════════════════════════════════════
+# FLOWS — rater som endrer stocks
+# ═══════════════════════════════════════════════════════════════
+flow Policy_Committee   -> Policy_Rate            : rate_decision (+) strong
+flow Goods_Market       -> Price_Level            : inflation_rate (+) strong
+flow Price_Level        -> Inflation_Expectations : expectation_update (+) medium
+flow FX_Market          -> Krone_Index            : fx_movement (+) strong
+
+flow Labor_Market_In    -> Employment             : hiring (+) strong
+flow Employment         -> Labor_Market_Out       : separation (-) medium
+flow Labor_Market_In    -> Wage_Level             : wage_growth (+) strong
+
+flow Credit_Market_In   -> Household_Debt         : hh_borrowing (+) medium
+flow Household_Debt     -> Credit_Market_Out      : hh_repayment (-) weak
+flow Credit_Market_In   -> Business_Debt          : bus_borrowing (+) medium
+flow Business_Debt      -> Credit_Market_Out      : bus_repayment (-) weak
+flow Credit_Market_In   -> Municipal_Debt         : muni_borrowing (+) weak
+
+flow Goods_Market       -> Housing_Stock          : new_construction (+) strong
+flow Housing_Stock      -> Construction_Sink      : housing_decay (-) weak
+flow FX_Market          -> House_Prices           : price_appreciation (+) medium
+flow House_Prices       -> Construction_Sink      : price_correction (-) medium
+
+# ═══════════════════════════════════════════════════════════════
+# CONNECTORS — drivere til flows (lukker feedback-loops)
+# ═══════════════════════════════════════════════════════════════
+
+# B0 — Taylor-regel (lukker systemet)
+connector rate_decision      <- Price_Level (+), output_gap (+), Inflation_Expectations (+)
+
+# B1 — Phillips-kanalen
+connector hiring             <- output_gap (+)
+connector separation         <- output_gap (-)
+connector wage_growth        <- unemployment (-), Inflation_Expectations (+), frontfag_profit (+), debt_service_hh (+)
+
+# B2 — Valutakanalen
+connector fx_movement        <- rate_differential (+), Oil_Gas_Price (+), Geopolitical_Risk (-)
+
+# Inflasjonsdrivere → Price_Level
+connector inflation_rate     <- import_prices_nok (+), domestic_inflation (+)
+
+# B3 — Boligkanalen
+connector hh_borrowing       <- housing_demand (+)
+connector new_construction   <- construction_activity (+)
+connector price_appreciation <- housing_demand (+)
+connector price_correction   <- mortgage_rate (+)
+
+# Bedriftsfinansiering
+connector bus_borrowing      <- business_rate (-)
+
+# B4 — Kommunekanalen
+connector muni_borrowing     <- debt_service_muni (-)
+
+# Adaptive forventninger
+connector expectation_update <- inflation_rate (+)
+
+@position Policy_Rate 652 548
+@position Price_Level 872 548
+@position Inflation_Expectations 1101 503
+@position Krone_Index 319 390
+@position Household_Debt 1826 1594
+@position Employment 315 1379
+@position Wage_Level 588 1386
+@position Business_Debt 2192 1626
+@position House_Prices 2021 327
+@position Housing_Stock 2241 327
+@position Municipal_Debt 1407 560
+@position Foreign_Prices 274 164
+@position Oil_Gas_Price 487 191
+@position Foreign_Rates 1090 1164
+@position Geopolitical_Risk 786 228
+@position FX_Market 1064 247
+@position Goods_Market 1183 907
+@position Labor_Market_In 510 916
+@position Labor_Market_Out 665 1667
+@position Credit_Market_In 2175 907
+@position Credit_Market_Out 1870 1744
+@position Construction_Sink 2249 618
+@position Policy_Committee 376 870
+@position real_rate 874 435
+@position rate_differential 695 444
+@position import_prices_nok 140 446
+@position export_competitiveness 445 422
+@position frontfag_profit 362 511
+@position mortgage_rate 1542 1494
+@position debt_service_hh 1647 1517
+@position real_disposable_income 1824 1434
+@position consumption 1961 1464
+@position unemployment 463 1283
+@position unit_labor_costs 641 1237
+@position business_rate 2280 1539
+@position debt_service_bus 2375 1598
+@position business_costs 2504 1621
+@position housing_demand 2041 197
+@position construction_activity 2131 197
+@position rent_inflation 2221 197
+@position municipal_rate 1354 494
+@position debt_service_muni 1423 417
+@position municipal_services 1567 454
+@position output_gap 1606 1138
+@position domestic_inflation 1696 1138
+@position __meta__ 73 1683
+@position __legend__ 2383 34
