@@ -1,13 +1,15 @@
 import type { TMModel, TMRef, TMBoundary, TMFlow, TMThreat, TMMitigation } from './types';
-import type { ModelMeta, Position, ParseError, ParseResult } from '../types';
+import type { ModelMeta, Position, ParseError, ParseResult, ParseOptions } from '../types';
 import type { StrideCategory } from '../themes';
+import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES } from '../themes';
 
 function todayISO(): string { return new Date().toISOString().slice(0, 10); }
 
 const VALID_STRIDE = new Set<string>(['S', 'T', 'R', 'I', 'D', 'E']);
+const POSITIONAL_KEYWORDS_TM = new Set(['ref', 'boundary', 'flow', 'threat', 'mitigate', 'end']);
 
-export function parseTM(lines: string[]): ParseResult {
+export function parseTM(lines: string[], options?: ParseOptions): ParseResult {
   let idCounter = 0;
   const nextId = (p: string) => `${p}-${++idCounter}`;
 
@@ -23,6 +25,9 @@ export function parseTM(lines: string[]): ParseResult {
 
   let currentBoundary: TMBoundary | null = null;
 
+  const included = resolveIncludes(lines, 'tm', parseTM, options, errors);
+  refFiles.push(...included.refFiles);
+
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
     const line    = lines[i].trim();
@@ -36,6 +41,12 @@ export function parseTM(lines: string[]): ParseResult {
 
       switch (keyword) {
         case '@type':    /* consumed by dispatcher */ break;
+        case '@include': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@include is not allowed inside an included file (one level only)' });
+          }
+          break;
+        }
         case '@name':    meta.name    = value; break;
         case '@version': meta.version = value; break;
         case '@date':    meta.date    = value; break;
@@ -81,6 +92,10 @@ export function parseTM(lines: string[]): ParseResult {
         }
 
         case '@position': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@position is not allowed in an included file' });
+            break;
+          }
           const parts = value.split(/\s+/);
           if (parts.length !== 3) { errors.push({ line: lineNum, message: `@position requires: @position <id> <x> <y>` }); break; }
           const [nodeId, xStr, yStr] = parts;
@@ -100,6 +115,11 @@ export function parseTM(lines: string[]): ParseResult {
     const firstSpace = line.indexOf(' ');
     const keyword    = firstSpace === -1 ? line : line.slice(0, firstSpace);
     const rest       = firstSpace === -1 ? '' : line.slice(firstSpace + 1).trim();
+
+    if (options?.includeMode && POSITIONAL_KEYWORDS_TM.has(keyword)) {
+      errors.push({ line: lineNum, message: `"${keyword}" is not allowed in an included file - included files contribute only definitions and defaults` });
+      continue;
+    }
 
     switch (keyword) {
 
@@ -234,6 +254,8 @@ export function parseTM(lines: string[]): ParseResult {
       errors.push({ line: 0, message: `mitigate: threat "${m.threatId}" is not declared` });
     }
   }
+
+  applyMetaDefaults(meta, included.metaDefaults);
 
   const model: TMModel = { meta, refFiles, refs, boundaries, flows, threats, mitigations, savedPositions };
   return { model, errors };

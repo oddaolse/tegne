@@ -9,9 +9,12 @@ import { iffLayout } from './iff/layout';
 import { iffRender, attachIffDrag, attachIffGroupDrag, attachIffLegendBoxDrag } from './iff/renderer';
 import { tmLayout } from './tm/layout';
 import { tmRender, attachTmDrag, attachTmMetaBoxDrag } from './tm/renderer';
-import { emptyRegistry } from './project/registry';
+import { loadProjectDirectory } from './project/loader';
+import { buildRegistry, emptyRegistry } from './project/registry';
+import { ensureReadPermission, loadCommonFolderHandle, saveCommonFolderHandle } from './project/settings';
 import { exportSVG, saveSD, saveID, saveIFF, saveTM } from './export';
 import type { SDModel, IDModel, IFFModel, TMModel } from './types';
+import type { IDRegistry } from './project/types';
 
 const LS_KEY = 'tegne-dsl';
 
@@ -23,6 +26,7 @@ const btnOpen     = document.getElementById('btn-open')    as HTMLButtonElement;
 const btnSave     = document.getElementById('btn-save')    as HTMLButtonElement;
 const btnRender   = document.getElementById('btn-render')  as HTMLButtonElement;
 const btnExport   = document.getElementById('btn-export')  as HTMLButtonElement;
+const btnConfig   = document.getElementById('btn-config')  as HTMLButtonElement;
 const btnHelp     = document.getElementById('btn-help')    as HTMLButtonElement;
 const btnZoomIn       = document.getElementById('btn-zoom-in')      as HTMLButtonElement;
 const btnZoomOut      = document.getElementById('btn-zoom-out')     as HTMLButtonElement;
@@ -33,6 +37,9 @@ const svgEl           = document.getElementById('canvas')           as unknown a
 const svg             = d3.select(svgEl);
 
 let currentModel: SDModel | IDModel | IFFModel | TMModel | null = null;
+let projectFiles: Map<string, string> | undefined;
+let projectRegistry: IDRegistry = emptyRegistry();
+let configuredCommonFolderName: string | undefined;
 
 // ── Zoom & pan ────────────────────────────────────────────────────────────────
 const ZOOM_STEP = 1.10;
@@ -112,7 +119,7 @@ function runRender(): void {
   const dsl = editor.value;
   localStorage.setItem(LS_KEY, dsl);
 
-  const { model, errors } = parse(dsl);
+  const { model, errors } = parse(dsl, projectFiles ? { includeFiles: projectFiles } : undefined);
 
   if (errors.length > 0) {
     errorPanel.innerHTML = errors
@@ -147,7 +154,7 @@ function runRender(): void {
   } else if (model.meta.diagramType === 'tm') {
     const tmModel = model as TMModel;
     tmLayout(tmModel);
-    tmRender(svg, tmModel, emptyRegistry());
+    tmRender(svg, tmModel, projectRegistry);
     attachTmDrag(svg, tmModel, () => updateEditorPositions(tmModel));
     attachTmMetaBoxDrag(svg, tmModel, () => updateEditorPositions(tmModel));
   } else {
@@ -168,7 +175,29 @@ function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+
 // ── Button handlers ───────────────────────────────────────────────────────────
+async function loadCommonFolder(handle: FileSystemDirectoryHandle): Promise<void> {
+  if (!await ensureReadPermission(handle)) {
+    throw new Error('Permission to read the configured folder was not granted.');
+  }
+
+  projectFiles = await loadProjectDirectory(handle);
+  projectRegistry = buildRegistry(projectFiles);
+  configuredCommonFolderName = handle.name;
+}
+
+async function restoreCommonFolder(): Promise<void> {
+  const handle = await loadCommonFolderHandle();
+  if (!handle) return;
+
+  try {
+    await loadCommonFolder(handle);
+  } catch (err) {
+    console.warn('Could not restore configured common folder', err);
+  }
+}
+
 btnOpen.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', () => {
@@ -181,6 +210,25 @@ fileInput.addEventListener('change', () => {
   };
   reader.readAsText(file);
   fileInput.value = '';
+});
+
+btnConfig.addEventListener('click', async () => {
+  if (!('showDirectoryPicker' in window)) {
+    alert('Config requires a browser with File System Access API support.');
+    return;
+  }
+
+  try {
+    const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+    await saveCommonFolderHandle(dirHandle);
+    await loadCommonFolder(dirHandle);
+    alert(`Common Tegne files folder set to "${configuredCommonFolderName}".`);
+    if (editor.value.trim() !== '') runRender();
+  } catch (err) {
+    if ((err as DOMException).name !== 'AbortError') {
+      alert(`Could not set common files folder: ${(err as Error).message}`);
+    }
+  }
 });
 
 btnSave.addEventListener('click', () => {
@@ -253,8 +301,14 @@ helpPanelClose.addEventListener('click', () => helpPanel.classList.remove('visib
 }
 
 // ── Restore from localStorage ─────────────────────────────────────────────────
-const saved = localStorage.getItem(LS_KEY);
-if (saved) {
-  editor.value = saved;
-  runRender();
+async function init(): Promise<void> {
+  await restoreCommonFolder();
+
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved) {
+    editor.value = saved;
+    runRender();
+  }
 }
+
+void init();

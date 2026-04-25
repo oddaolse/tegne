@@ -11,7 +11,7 @@ export function buildRegistry(files: Map<string, string>): IDRegistry {
     // Skip project manifest itself
     if (filename.endsWith('.tegne')) continue;
 
-    const { model, errors: parseErrors } = parse(content);
+    const { model, errors: parseErrors } = parse(content, { includeFiles: files });
     if (!model) {
       if (parseErrors.length > 0) {
         errors.push({ filename, message: `Parse failed: ${parseErrors.map(e => e.message).join('; ')}` });
@@ -53,7 +53,8 @@ export function buildRegistry(files: Map<string, string>): IDRegistry {
     } else if (diagramType === 'infoflow') {
       const m = model as IFFModel;
       for (const s of m.stores) addEntry(s.id, 'store', s.label);
-    } else {
+      for (const p of m.processes) addEntry(p.id, 'process', p.label);
+    } else if (diagramType === 'sd') {
       const m = model as SDModel;
       for (const s of m.stocks)      addEntry(s.id, 'stock',  s.label);
       for (const c of m.clouds)      addEntry(c.id, 'cloud',  c.label);

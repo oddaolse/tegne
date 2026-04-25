@@ -51,6 +51,13 @@ export interface ParseResult {
   errors: ParseError[];
 }
 
+export interface ParseOptions {
+  /** Map of filename → DSL content for resolving @include directives. */
+  includeFiles?: Map<string, string>;
+  /** When true, the parser is being invoked to resolve an @include; positional content and nested @include become errors. */
+  includeMode?: boolean;
+}
+
 // ── Re-exports for consumers that import from the root types module ───────────
 
 export type {

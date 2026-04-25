@@ -2,8 +2,11 @@ import type {
   IDModel, IDElement, IDConnection, IDGroup,
   IDState, Direction, PlacementPos, LabelCorner,
 } from './types';
-import type { ModelMeta, Position, ParseError, ParseResult, LocationType } from '../types';
+import type { ModelMeta, Position, ParseError, ParseResult, LocationType, ParseOptions } from '../types';
+import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
+
+const POSITIONAL_KEYWORDS_ID = new Set(['system', 'database', 'queue', 'connect', 'group', 'end']);
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -15,7 +18,7 @@ function defaultPlacement(kind: IDElement['kind']): PlacementPos {
   return kind === 'system' ? 'inside' : 'below';
 }
 
-export function parseID(lines: string[]): ParseResult {
+export function parseID(lines: string[], options?: ParseOptions): ParseResult {
   let idCounter = 0;
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`;
 
@@ -28,6 +31,10 @@ export function parseID(lines: string[]): ParseResult {
   const locationTypes: LocationType[] = [];
   let currentGroup: IDGroup | null = null;
   let inLocationTypesBlock = false;
+
+  const included = resolveIncludes(lines, 'id', parseID, options, errors);
+  locationTypes.push(...included.locationTypes);
+  const includedLocationNames = new Set(included.locationTypes.map(x => x.name.toLowerCase()));
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
@@ -52,6 +59,14 @@ export function parseID(lines: string[]): ParseResult {
           errors.push({ line: lineNum, message: `Unknown palette colour: "${colour}". Valid: ${VALID_PALETTE_COLOURS.join(', ')}` });
           continue;
         }
+        if (includedLocationNames.has(name.toLowerCase())) {
+          errors.push({ line: lineNum, message: `location-type "${name}" is already contributed by an @include` });
+          continue;
+        }
+        if (locationTypes.find(x => x.name.toLowerCase() === name.toLowerCase())) {
+          errors.push({ line: lineNum, message: `Duplicate location-type: "${name}"` });
+          continue;
+        }
         locationTypes.push({ name, colour: colour.toLowerCase() });
         continue;
       } else {
@@ -70,6 +85,12 @@ export function parseID(lines: string[]): ParseResult {
 
       switch (keyword) {
         case '@type':    /* consumed by dispatch */ break;
+        case '@include': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@include is not allowed inside an included file (one level only)' });
+          }
+          break;
+        }
         case '@name':    meta.name    = value; break;
         case '@version': meta.version = value; break;
         case '@date':    meta.date    = value; break;
@@ -129,6 +150,10 @@ export function parseID(lines: string[]): ParseResult {
         }
 
         case '@position': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@position is not allowed in an included file' });
+            break;
+          }
           const parts = value.split(/\s+/);
           if (parts.length !== 3) {
             errors.push({ line: lineNum, message: `@position requires: @position <id> <x> <y>` });
@@ -154,6 +179,11 @@ export function parseID(lines: string[]): ParseResult {
     const firstSpace = line.indexOf(' ');
     const keyword    = firstSpace === -1 ? line : line.slice(0, firstSpace);
     const rest       = firstSpace === -1 ? '' : line.slice(firstSpace + 1).trim();
+
+    if (options?.includeMode && POSITIONAL_KEYWORDS_ID.has(keyword)) {
+      errors.push({ line: lineNum, message: `"${keyword}" is not allowed in an included file - included files contribute only definitions and defaults` });
+      continue;
+    }
 
     switch (keyword) {
 
@@ -330,6 +360,7 @@ export function parseID(lines: string[]): ParseResult {
   if (locationTypes.length > 0) {
     meta.locationTypes = locationTypes;
   }
+  applyMetaDefaults(meta, included.metaDefaults);
 
   const model: IDModel = { meta, elements, connections, groups, savedPositions };
   return { model, errors };

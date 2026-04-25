@@ -23,6 +23,15 @@ Lines starting with `@name`, `@version`, `@date`, `@author`, `@theme`, `@orienta
 - If **any** `@position` directives are present in the file, `layout.ts` skips auto-layout entirely and uses saved positions for all nodes that have them; nodes without a saved position fall back to auto-layout
 - `x` and `y` are integers (SVG user units)
 
+### `@include` directives
+`@include <filename>` loads definitions from another file in the opened project folder. Includes are parse-time only and same-type only (`.sd` into SD, `.id` into ID, `.iff` into infoflow, `.tm` into threat model).
+- Included files must not contain positional declarations, `@position`, or nested `@include`.
+- Included identity metadata (`@name`, `@version`, `@date`, `@author`) is ignored.
+- Included display metadata (`@theme`, `@orientation`, `@size`, `@legend`, `@show-ids`) is default-only; the host file wins.
+- Dictionary blocks merge additively before host declarations; duplicate names are parse errors.
+- TM includes additionally merge `@ref` file entries.
+- Single-file open does not load siblings; an unresolved include must produce an actionable parse error.
+
 ### `flow` strength
 An optional trailing keyword `weak`, `medium`, or `strong` follows the polarity token:
 ```
@@ -67,7 +76,7 @@ The polarity token is located using `lastIndexOf('(')` and `lastIndexOf(')')` on
 connector sale <- order_filling (+)   # see loop (B1)   ← ERROR: parses (B1) as polarity
 ```
 
-This is a known parser limitation. The workaround is to avoid parentheses in inline comments on `flow`, `connector`, and `aux` lines. Document this rule in `requirements.md` and `README.md`. A proper fix would strip the `#`-comment before scanning for polarity.
+This is a known parser limitation. The workaround is to avoid parentheses in inline comments on `flow`, `connector`, and `aux` lines. Document this rule in `.claude/specs/stock-flow.md` and `README.md`. A proper fix would strip the `#`-comment before scanning for polarity.
 
 ## Layout Heuristic
 1. Stocks placed in a **horizontal row**, centred vertically, evenly spaced (spacing: 220px)

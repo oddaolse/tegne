@@ -1,0 +1,20 @@
+@type infoflow
+@theme light
+@size a4
+
+@location-types
+  master orange
+  replica cyan
+  derived green
+  aggregate red
+  reference grey
+  consumer grey
+
+@systems
+  SystemA blue
+  SystemB teal
+
+@flow-types
+  sync solid
+  async dashed
+  batch thick

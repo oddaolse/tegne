@@ -6,23 +6,7 @@
 @theme light
 @size a4
 
-
-@location-types
-  master orange
-  replica cyan
-  derived green
-  aggregate red
-  reference grey
-  consumer grey
-
-@systems
-  SystemA blue
-  SystemB teal
-
-@flow-types
-  sync solid
-  async dashed
-  batch thick
+@include common-types.iff
 
 group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   store cis [master] [unchanged] [label:"CIS"]

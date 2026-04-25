@@ -1,259 +1,153 @@
-# Tegne
+# Tegne Contributor Instructions
 
-## Meta File Maintenance
-
-**Always keep meta files up to date.** After any change to features, architecture, behaviour, or project scope, update the relevant files before finishing:
-
-- `CLAUDE.md` — project purpose, structure, definition of done
-- `requirements.md` — feature requirements and scope
-- `.claude/rules/*.md` — implementation rules (architecture, rendering, UI, etc.)
-- `README.md` — public-facing documentation
-
-Do not leave meta files describing a state that no longer matches the code.
-
----
+This file is the authoritative working guide for Claude Code, Codex, and human contributors. Keep `AGENTS.md` as a pointer to this file only.
 
 ## Purpose
 
-A browser-based structural/visual modelling tool. The user writes a model in a plain-text DSL; the tool renders it as an interactive SVG. No simulation.
+Tegne is a browser-based structural and visual modelling tool. Users write plain-text DSL files and the app renders interactive SVG diagrams. It does not simulate models or evaluate equations.
 
-Tegne supports multiple diagram types, selected via `@type` at the top of the DSL file:
+Supported diagram types:
 
-| `@type` | Diagram | Status |
+| `@type` | Diagram | Extension |
 |---|---|---|
-| `sd` | Forrester Stock-and-Flow (System Dynamics) | Implemented |
-| `id` | Integration Diagram (IT Architecture) | Implemented |
-| `infoflow` | Information Flow Diagram (Data Landscape) | Implemented |
-| `tm` | Threat Model (STRIDE) | Implemented |
-| *(absent)* | Defaults to `sd` | — |
+| `sd` or absent | Forrester stock-and-flow | `.sd` |
+| `id` | Integration diagram | `.id` |
+| `infoflow` | Information flow diagram | `.iff` |
+| `tm` | Threat model | `.tm` |
 
-**What to build:** see [`requirements.md`](requirements.md)
-**How to build it:** see [`.claude/rules/`](.claude/rules/)
+## Source Of Truth
 
----
+- Use `.claude/requirements.md` for product behaviour and shared requirements.
+- Use `.claude/specs/*.md` for formal diagram syntax, semantics, valid examples, invalid examples, and test obligations.
+- Use `.claude/rules/*.md` for detailed implementation rules.
+- Use `.claude/history/` only for completed historical plans and migration notes.
+- Use this file for repository workflow, structure, and definition of done.
+- Update documentation in the same change as behaviour changes. Do not leave docs, fixtures, help text, or rule files stale.
 
-## Implementation Rules
+## Context Loading Guide
 
-| File | Covers |
-|---|---|
-| `code-style.md` | TypeScript rules, Vite, do-not-do list |
-| `architecture.md` | File structure, data model, parser, layout, drag |
-| `svg-rendering.md` | D3, Forrester symbol specifications, theme system |
-| `ui-layout.md` | Two-column layout, zoom/pan, open/save/export, error panel |
-| `testing.md` | Fixtures, acceptance criteria |
-| `dependencies.md` | Pinned dependency list, what not to add |
-| `integration-diagram.md` | ID element specs, platform colours, DSL syntax, arrow rules |
-| `infoflow-diagram.md` | IFF store/link specs, roles, relationships, groups |
-| `threat-model.md` | TM ref/boundary/flow/threat/mitigate specs, STRIDE |
+Read only the files needed for the task.
 
-**Read all rule files and `requirements.md` before writing any code.**
+- Always read this file first.
+- For product, workflow, or shared behaviour changes, read `.claude/requirements.md`.
+- For diagram-specific work, read only the relevant spec:
+  - SD: `.claude/specs/stock-flow.md`
+  - ID: `.claude/specs/integration-diagram.md`
+  - IFF: `.claude/specs/information-flow-diagram.md`
+  - TM: `.claude/specs/threat-model.md`
+- For implementation details, read only the relevant rules:
+  - parser, model, layout, and drag: `.claude/rules/architecture.md`
+  - SVG, D3, shapes, themes, and edge routing: `.claude/rules/svg-rendering.md`
+  - UI shell, Help panel, open/save/export, zoom, pan: `.claude/rules/ui-layout.md`
+  - tests and fixtures: `.claude/rules/testing.md`
+  - dependencies: `.claude/rules/dependencies.md`
+  - diagram-specific implementation notes: `.claude/rules/<diagram>.md`
+- Do not read `.claude/history/` unless the task asks for history, migration context, or review of completed work.
 
----
+## Repository Structure
 
-## File Structure
-
-```
-tegne/
-├── index.html
-├── vite.config.ts
-├── tsconfig.json
-├── package.json
-├── CLAUDE.md
-├── requirements.md
-├── src/
-│   ├── main.ts         # Entry point — wires editor, routes by @type
-│   ├── types.ts        # Shared types + re-exports from sub-modules
-│   ├── parser.ts       # DSL entry point — pre-scans @type, dispatches
-│   ├── themes.ts       # Colour themes (dark, light, tokyo) — SD + ID + IFF + TM slots
-│   ├── export.ts       # SVG export, .sd save, .id save, .iff save, .tm save
-│   ├── env.d.ts        # Type declarations for File System Access API
-│   ├── sd/             # Forrester Stock-and-Flow
-│   │   ├── types.ts
-│   │   ├── parser.ts
-│   │   ├── layout.ts
-│   │   ├── renderer.ts
-│   │   └── drag.ts
-│   ├── id/             # Integration Diagram
-│   │   ├── types.ts
-│   │   ├── parser.ts
-│   │   ├── layout.ts
-│   │   ├── renderer.ts
-│   │   └── shapes.ts
-│   ├── iff/            # Information Flow Diagram
-│   │   ├── types.ts
-│   │   ├── parser.ts
-│   │   ├── layout.ts
-│   │   ├── renderer.ts
-│   │   └── shapes.ts
-│   ├── tm/             # Threat Model
-│   │   ├── types.ts
-│   │   ├── parser.ts
-│   │   ├── layout.ts
-│   │   └── renderer.ts
-│   └── project/        # Cross-diagram registry and project loader
-│       ├── types.ts
-│       ├── manifest-parser.ts
-│       ├── registry.ts
-│       └── loader.ts
-└── fixtures/
-    ├── population.sd              # SD: simple model — all five element types
-    ├── factory_dynamics.sd        # SD: Forrester production-distribution chain (bullwhip effect)
-    ├── grouped_population.sd      # SD: demonstrates grouping — stocks and aux in groups
-    ├── integration_example.id     # ID: minimal — no metadata overrides, all defaults
-    ├── e-commerce-platform.id     # ID: full — all metadata, platforms, states, groups, placement overrides
-    ├── customer_information.iff   # IFF: customer data landscape — all 7 roles, 2 groups
-    └── threat_model_example.tm    # TM: e-commerce threat model — all STRIDE categories; @ref e-commerce-platform.id
+```text
+index.html              UI shell and in-app Help panel
+src/main.ts             browser entry point and diagram routing
+src/parser.ts           DSL dispatcher based on @type
+src/types.ts            shared model types and re-exports
+src/themes.ts           theme definitions
+src/export.ts           SVG export and DSL save helpers
+src/sd/                 stock-and-flow parser, layout, drag, renderer
+src/id/                 integration diagram parser, layout, renderer, shapes
+src/iff/                information-flow parser, layout, renderer, shapes
+src/tm/                 threat-model parser, layout, renderer
+src/project/            cross-diagram registry and project loading
+tests/                  Vitest tests
+fixtures/               stable example DSL files
+dist/                   generated build output; do not edit by hand
 ```
 
----
-
-## Core Data Model
-
-```typescript
-type Polarity      = '+' | '-';
-type CloudRole     = 'source' | 'sink';
-type FlowStrength  = 'weak' | 'medium' | 'strong';
-
-interface ModelMeta {
-  name?:        string;
-  version?:     string;
-  date:         string;   // ISO date; auto-filled if @date absent
-  author?:      string;
-  theme?:       string;   // theme name (dark | light | tokyo); default: dark
-  orientation?: 'landscape' | 'portrait';
-  size?:        'a4' | 'a3' | 'a2' | 'a1' | 'a0';  // paper size; default: a4
-}
-
-interface Position  { x: number; y: number; }
-interface Stock     extends Position { kind: 'stock'; id: string; label: string; }
-interface Cloud     extends Position { kind: 'cloud'; id: string; label: string; role: CloudRole; }
-interface Auxiliary extends Position { kind: 'aux';   id: string; label: string; }
-
-interface Flow {
-  kind: 'flow'; id: string;
-  from: string; to: string; label: string;
-  polarity: Polarity; strength: FlowStrength;
-}
-
-interface Connector {
-  kind: 'connector'; id: string;
-  from: string; to: string; polarity: Polarity;
-}
-
-type Node = Stock | Cloud | Auxiliary;
-
-type SDLabelCorner = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
-
-interface SDGroup {
-  kind:        'group';
-  id:          string;
-  label:       string;
-  members:     string[];       // stock and aux IDs (not clouds)
-  labelCorner: SDLabelCorner;
-}
-
-interface SDModel {
-  meta:           ModelMeta;
-  stocks:         Stock[];
-  clouds:         Cloud[];
-  auxiliaries:    Auxiliary[];
-  flows:          Flow[];
-  connectors:     Connector[];
-  groups:         SDGroup[];
-  savedPositions: Record<string, Position>;
-}
-```
-
-Do **not** add fields to these interfaces without updating `types.ts` first.
-
-> **Other diagram models:** See `src/id/types.ts` (IDModel), `src/iff/types.ts` (IFFModel), `src/tm/types.ts` (TMModel).
-
----
-
-## Definition of Done
-
-### v1
-- [x] Project scaffolded with Vite + TypeScript
-- [x] `types.ts` implements the canonical `SDModel` interface
-- [x] `parser.ts` parses all DSL element types; returns errors with line numbers
-- [x] `layout.ts` applies the heuristic initial placement
-- [x] `renderer.ts` renders all five Forrester element types correctly via D3
-- [x] `drag.ts` makes all elements draggable; connectors redraw on drag
-- [x] `export.ts` produces a valid standalone SVG file
-- [x] All three fixtures parse and render correctly
-- [x] Error panel shows parse errors without clearing the current diagram
-
-### Post-v1
-- [x] Flow strength (`weak` / `medium` / `strong`) — pipe style varies by strength
-- [x] Metadata box — bottom-left canvas annotation (name, version, date, author)
-- [x] File Open / Save — `.sd` files with `@position` directives preserve layout
-- [x] Save As — uses File System Access API for native directory/filename dialog (SVG export too)
-- [x] `@theme` directive — selects colour theme (`dark`, `light`, `tokyo`)
-- [x] `themes.ts` — all colours defined per theme; no hardcoded colour values in renderer
-- [x] `@orientation` directive — controls page orientation (landscape default / portrait)
-- [x] `@size` directive — selects paper size (`a4` default, `a3`, `a2`, `a1`, `a0`)
-- [x] Canvas = page — viewport is sized to the page; no dead space outside
-- [x] Zoom controls — `+` / `−` / `⊡` buttons at ×1.10 per step; label shows current %
-- [x] Scroll to pan — mouse wheel and trackpad pan the canvas in both axes
-- [x] SD groupings — `group <id> <label> [corner:*]` / `end` blocks; stocks and auxiliaries only (not clouds); draggable as a unit; fixture: `fixtures/grouped_population.sd`
-
-### Integration Diagram (`@type id`)
-- [x] `@type` directive — parser reads type first; defaults to `sd` if absent
-- [x] Element types: `system`, `database`, `queue`
-- [x] Platform colours: `[aws]`, `[azure]`, `[on-prem]`, `[gcp]`, `[oracle]`
-- [x] Element states: default (current), `[new]`, `[changing]`, `[decommissioned]`
-- [x] Label placement: inside for `system`, below for `database` and `queue`; override with `[placement:inside]` / `[placement:below]`
-- [x] Connections: `connect A -> B : protocol`, `connect A <-> B : protocol`
-- [x] Arrow styles: closed arrowhead for all connections; open arrowhead when either endpoint is a `queue`
-- [x] Full theme support — all three themes; tokyo renders neon with SVG glow filter
-- [x] `@theme` directive supported in ID diagrams
-- [x] Drag support — elements draggable; connections redraw on move
-- [x] Groupings — `group <id> <label> [corner:*]` / `end` blocks; named boundary rect; draggable as a unit
-- [x] `changing` state — dashed border + 50% fill-opacity (platform colour unchanged, rendered semi-transparent)
-- [x] Legend box — upper-right canvas annotation; shows only platform/state combinations in use; draggable; position persisted as `@position __legend__`
-
-### Information Flow Diagram (`@type infoflow`)
-- [x] `store <id> [<role>]` — data store node; 7 roles: `master`, `replica`, `derived`, `aggregate`, `golden`, `reference`, `consumer`
-- [x] Role fill colours — one colour per role, all three themes
-- [x] Role badge — italic role name rendered below each store node
-- [x] `link <from> -> <to> : <relationship>` — directional data flow; 8 relationships: `replicate`, `publish`, `ingest`, `derive`, `aggregate`, `enrich`, `merge`, `serve`
-- [x] Element states: default (current), `[new]`, `[changing]`, `[decommissioned]` — reflected in border style
-- [x] Label override: `[label:"Human Readable Name"]`
-- [x] Full theme support — dark, light, tokyo (neon + glow)
-- [x] Drag support — stores draggable; links redraw on move
-- [x] Groupings — `group <id> <label> [corner:*]` / `end` blocks; draggable as a unit
-- [x] Save as `.iff` file with `@position` directives
-- [x] Fixture: `fixtures/customer_information.iff`
-
-### Threat Model (`@type tm`)
-- [x] `@ref <filename>` — declares referenced diagram files
-- [x] `boundary <id> [label:"..."]` / `end` — trust boundary blocks
-- [x] `ref <id>` — ghost element inside or outside a boundary
-- [x] `flow <id> <from> -> <to> [label:"..."]` — directed data flow between refs
-- [x] `threat <id> [stride:S|T|R|I|D|E] <targetId> : "desc"` — STRIDE threat annotation
-- [x] `mitigate <threatId> : "desc"` — mitigation for a declared threat
-- [x] Ghost ref rendering — dashed border, reduced opacity, source-type badge from registry
-- [x] STRIDE badge rendering — coloured circles on target; mitigated threats at 35% opacity
-- [x] STRIDE key box — draggable legend showing used categories; persisted as `@position __stride_key__`
-- [x] Mitigations panel — draggable box listing all mitigations; persisted as `@position __mitigations__`
-- [x] Full theme support — dark, light, tokyo
-- [x] Drag support — refs draggable; flows and boundaries update on move
-- [x] Save as `.tm` file with `@position` directives
-- [x] Fixture: `fixtures/threat_model_example.tm`
-
-### Cross-diagram features
-- [x] `@show-ids on|off` — optional [id] badge overlay on every element (all diagram types)
-- [x] `src/project/` — cross-diagram ID registry (`buildRegistry`, `emptyRegistry`), project manifest parser, directory loader
-
-### UI
-- [x] Help panel — floating, draggable, non-blocking; shows DSL syntax for `sd`, `id`, `infoflow`, `tm` diagram types, and `@show-ids`
-
----
-
-## Build and Run
+## Commands
 
 ```bash
-npm install
-npm run dev      # development server with hot reload
-npm run build    # production build → dist/
+npm install       # install dependencies
+npm run dev       # start Vite dev server
+npm test          # run Vitest once
+npm run build     # production build into dist/
+npm run preview   # preview production build
 ```
+
+On Windows PowerShell, `npm.ps1` may be blocked by execution policy. Use `npm.cmd test` or direct node invocations when needed.
+
+## Coding Rules
+
+- Use TypeScript and keep `tsconfig.json` strictness intact.
+- Follow existing style: 2-space indentation, semicolons, single quotes, explicit return types on exported functions where practical.
+- Keep diagram-specific code inside its diagram folder.
+- For a new diagram type, mirror the existing split: `types.ts`, `parser.ts`, `layout.ts`, `renderer.ts`, optional `shapes.ts` or `drag.ts`.
+- Put shared cross-diagram behaviour in `src/types.ts`, `src/parser.ts`, `src/themes.ts`, `src/export.ts`, or `src/project/` only when it is genuinely shared.
+- Do not add dependencies casually. Check `package.json` and `.claude/rules/dependencies.md` first.
+- Do not edit generated `dist/` files directly.
+
+## DSL And Parser Rules
+
+- Parsers must return structured models plus line-aware parse errors.
+- Unknown syntax should produce useful errors without clearing the last valid render.
+- Preserve backward compatibility for existing fixtures unless a migration is explicitly part of the task.
+- `@include` is same-type and project-scoped; included files contribute definitions/defaults, not diagram elements or positions.
+- When changing DSL syntax, update all of these in the same change:
+  - parser and model types
+  - renderer/layout/save behaviour if affected
+  - tests
+  - fixtures
+  - `README.md`
+  - `.claude/requirements.md`
+  - `index.html` Help panel
+  - relevant `.claude/rules/*.md` or specs
+
+## Rendering Rules
+
+- Render diagrams as SVG using D3.
+- Keep geometry helpers testable where possible.
+- Theme colours must come from `src/themes.ts`; do not hardcode new semantic colours in renderers.
+- Dragging must update model positions and redraw affected links or boundaries.
+- Saved `@position` directives must round-trip for every draggable element and special box.
+
+## Testing Rules
+
+- Use Vitest.
+- Add focused parser tests for every DSL branch, including invalid syntax.
+- Add fixture tests for realistic examples.
+- Add geometry or renderer-adjacent tests when changing shapes, edge routing, legends, or visual state rules.
+- Run the relevant focused tests during development and the full suite before finishing when feasible.
+
+Current useful test commands:
+
+```bash
+node node_modules\vitest\vitest.mjs run
+node node_modules\vitest\vitest.mjs run tests\iff-parser.test.ts tests\iff-geometry.test.ts tests\iff-layout.test.ts
+```
+
+## Documentation Rules
+
+- `README.md` is public-facing. Keep examples concise and accurate.
+- `.claude/requirements.md` defines user-visible behaviour. Keep it aligned with implemented DSL and UI.
+- `index.html` contains the in-app Help panel. Update it whenever DSL syntax changes.
+- `fixtures/` are executable examples. Treat them as compatibility assets.
+- `.claude/specs/` contains durable diagram specifications. Keep them accurate when implemented grammar or rendering semantics change.
+- `.claude/history/` contains completed plans and migration notes. Do not treat it as the primary source of truth.
+
+## Git Rules
+
+- Use short, imperative commit messages.
+- Keep commits scoped to one logical change.
+- Do not commit unrelated local changes.
+- Do not rewrite history unless explicitly asked.
+- Do not use destructive git commands unless explicitly requested.
+
+## Definition Of Done
+
+A change is complete only when:
+
+- the implemented behaviour matches `.claude/requirements.md` or the agreed task
+- relevant tests and fixtures are added or updated
+- in-app Help and public docs match the code
+- strict TypeScript and existing project conventions are respected
+- focused tests pass, and the full suite/build are run when the change affects shared or browser-facing behaviour
+- any known limitation or follow-up is recorded in the relevant plan/spec file

@@ -8,7 +8,7 @@ Extend the `@type infoflow` diagram so it supports a new `process` symbol while 
 
 The requested change affects more than drawing. The current information-flow implementation is store-centric: parsing, validation, layout, drag behavior, saved positions, and export all assume that every addressable node is a store. To implement `process` correctly, the internal model must be generalized to support multiple node kinds.
 
-## Current Constraints
+## Initial Constraints Before Implementation
 
 - `src/iff/types.ts` defines `IFFStore`, `IFFLink`, and `IFFGroup`, but no shared node abstraction.
 - `src/iff/parser.ts` parses only `store`, `link`, `group`, and `@location-types`.
@@ -18,7 +18,7 @@ The requested change affects more than drawing. The current information-flow imp
 - `src/iff/shapes.ts` provides only one shape: the current store rectangle.
 - `src/main.ts` and `src/export.ts` serialize `@position` lines for stores only.
 
-## Design Decisions To Lock Before Coding
+## Implemented Design Decisions
 
 1. Introduce a shared node model for information-flow diagrams.
    - Add a common `IFFNode` union with `store` and `process`.
@@ -26,15 +26,15 @@ The requested change affects more than drawing. The current information-flow imp
    - Keep store-only fields separate from process-only fields.
 
 2. Support the new syntax in phases.
-   - Phase 1 should implement `process`, `@systems`, `@flow-types`, and `group [system:...]`.
-   - `@store-state` should stay code-defined for now unless we explicitly decide to make state visuals fully data-driven.
+   - Implemented `process`, `@systems`, `@flow-types`, and `group [system:...]`.
+   - Kept state visuals code-defined; no `@store-state` block is part of the durable spec.
 
 3. Allow links between any valid node IDs.
    - Replace store-only endpoint validation with node-level validation.
    - Replace the current optional `transport` field with a first-class `flowType`.
 
 4. Render node kinds differently.
-   - `process`: square.
+   - `process`: rectangle.
    - `store`: database drum.
    - Edge attachment math must be shape-aware.
 
@@ -46,16 +46,18 @@ The requested change affects more than drawing. The current information-flow imp
    - Stores use `@location-types`.
    - Processes use `@systems`.
    - Links use `@flow-types`.
-   - The legend will likely need separate sections instead of one flat list.
+   - The legend uses separate sections instead of one flat list.
 
-## Open Questions
+## Resolved Decisions
 
-- Should `process` support group-level inherited system assignment when no `[SystemX]` qualifier is present? The draft says yes.
-- Should `process` state reuse the same visual state system as `store`? The draft says yes.
-- Should flow type be optional with inference by relationship in phase 1, or should explicit `[flow:*]` be required first and inference added later?
-- The draft changes state semantics from the current implementation. We need to decide whether to preserve existing visuals or adopt the new meanings exactly:
-  - current code: `new = thick solid`, `changing = dashed with reduced fill`, `decommissioned = dotted`
-  - draft: `changing = bold`, `new = dashed`, `decommissioned = x`
+- Processes inherit a group-level system when no local system qualifier is present.
+- Processes reuse the same state model as stores.
+- Flow type is optional and inferred from relationship when omitted.
+- State visuals are code-defined:
+  - current/unchanged: solid
+  - changing: dashed
+  - new: dotted
+  - decommissioned: X marker
 
 ## Implementation Phases
 
@@ -83,7 +85,7 @@ Exit criteria:
 ### Phase 3: Shapes and Rendering
 
 - Replace the store rectangle with a drum shape.
-- Add process square rendering.
+- Add process rectangle rendering.
 - Update node drawing, label placement, and ID badges for both node kinds.
 - Update edge routing to connect to the correct shape boundary.
 - Redesign the legend to separate store types, systems, and flow types.
@@ -104,7 +106,7 @@ Exit criteria:
 ### Phase 5: Documentation and Fixtures
 
 - Update `README.md` infoflow syntax and examples.
-- Update `requirements.md` to describe the new node model and DSL blocks.
+- Update `.claude/requirements.md` to describe the new node model and DSL blocks.
 - Add or revise `.iff` fixtures to cover realistic mixed diagrams.
 
 Exit criteria:
@@ -136,7 +138,7 @@ Add tests for:
 If renderer tests are practical in the current setup, add focused tests for:
 
 - store node renders as a drum
-- process node renders as a square
+- process node renders as a rectangle
 - decommissioned marker behavior once finalized
 - link labels include explicit flow type when present
 
@@ -172,7 +174,7 @@ Update this section in-place during implementation. Only mark an item complete w
 - [x] Phase 2: Replace store-only link validation with node-level validation.
 - [x] Phase 2: Add parser tests for valid and invalid mixed-node syntax.
 - [x] Phase 3: Implement store drum shape.
-- [x] Phase 3: Implement process square shape.
+- [x] Phase 3: Implement process rectangle shape.
 - [x] Phase 3: Make edge geometry shape-aware.
 - [x] Phase 3: Update mixed-node rendering and labels.
 - [x] Phase 3: Redesign and implement the legend for location types, systems, and flow types.
@@ -180,7 +182,7 @@ Update this section in-place during implementation. Only mark an item complete w
 - [x] Phase 4: Update drag behavior for mixed nodes and group drags.
 - [x] Phase 4: Update save/load position serialization in `src/main.ts` and `src/export.ts`.
 - [x] Phase 4: Add round-trip tests for positions and mixed-node diagrams.
-- [x] Phase 5: Update `README.md` and `requirements.md`.
+- [x] Phase 5: Update `README.md` and `.claude/requirements.md`.
 - [x] Phase 5: Add or update `.iff` fixtures for realistic mixed-node diagrams.
 - [x] Phase 5: Compare `.claude` infoflow EBNF specification with the implemented parser and record syntax mismatches.
 - [x] Final verification: Run the full test suite and fix regressions.
@@ -195,30 +197,13 @@ Example format:
 
 ## Spec Alignment Notes
 
-Reviewed `.claude/specs-and-plans/information-flow-diagram-specification.md` against `src/iff/parser.ts`.
+Reviewed the former information-flow draft specification against `src/iff/parser.ts`. The stale draft was later reconciled into `.claude/specs/information-flow-diagram.md` and removed from the historical planning area.
 
-Key mismatches found:
+Outcome:
 
-- `process` system syntax differs.
-  The EBNF specifies `[system:SystemA]`; the implementation currently accepts bare system qualifiers like `[SystemA]`.
-- `@store-state` is specified but not implemented.
-  State visuals remain hardcoded in code rather than declared through a DSL block.
-- Link relationships are open in the EBNF but closed in code.
-  The EBNF allows any identifier; the parser accepts only a fixed relationship set.
-- Flow typing is stricter in the EBNF than in code.
-  The EBNF uses `[flow:sync|async|batch]`; the parser also preserves legacy bare qualifiers like `[kafka]`.
-- `group_body` is too broad in the EBNF.
-  The grammar allows any `element`, which implies nested groups and `@position` inside groups; the implementation rejects nested groups.
-- Identifiers and numbers are stricter in the EBNF than in code.
-  The parser currently accepts looser IDs and general numeric coordinates.
-- Group labels are stricter in the EBNF than in code.
-  The grammar requires quoted strings; the parser accepts quoted and unquoted labels.
-
-Recommended follow-up:
-
-- Align the parser to one explicit process system syntax: `[system:<name>]`.
-- Tighten the EBNF so `group_body` only contains `store`, `process`, and `link` declarations.
-- Decide whether `@store-state` should become a real configurable DSL feature or be removed from the formal grammar.
+- The durable spec now lives at `.claude/specs/information-flow-diagram.md`.
+- The old draft was removed from the historical planning area.
+- The durable spec documents the implemented syntax, including relationship validation, flow inference, legacy bare link qualifiers, group system inheritance, process rectangles, store drums, and state visuals.
 
 ## Post-Implementation Refinements
 

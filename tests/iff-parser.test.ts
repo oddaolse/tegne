@@ -173,7 +173,8 @@ end`);
 
   it('parses mixed process fixture without errors', async () => {
     const dsl = (await import('../fixtures/customer_information_process.iff?raw')).default;
-    const { model, errors } = parse(dsl);
+    const common = (await import('../fixtures/common-types.iff?raw')).default;
+    const { model, errors } = parse(dsl, { includeFiles: new Map([['common-types.iff', common]]) });
     expect(errors).toHaveLength(0);
     const iff = model as IFFModel;
     expect(iff.stores.length).toBe(5);

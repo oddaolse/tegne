@@ -3,9 +3,12 @@ import type {
   IFFRelationship, IFFState, IFFLabelCorner,
 } from './types';
 import type {
-  FlowType, LocationType, ModelMeta, ParseError, ParseResult, Position, SystemType,
+  FlowType, LocationType, ModelMeta, ParseError, ParseOptions, ParseResult, Position, SystemType,
 } from '../types';
+import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
+
+const POSITIONAL_KEYWORDS_IFF = new Set(['store', 'process', 'link', 'group', 'end']);
 
 const VALID_RELATIONSHIPS: readonly IFFRelationship[] = [
   'replicate', 'publish', 'subscribe', 'ingest', 'derive', 'aggregate', 'enrich', 'merge', 'serve', 'query',
@@ -141,7 +144,7 @@ function inferFlowType(relationship: IFFRelationship): string | undefined {
   }
 }
 
-export function parseIFF(lines: string[]): ParseResult {
+export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
   let idCounter = 0;
   const nextId = (prefix: string) => `${prefix}-${++idCounter}`;
 
@@ -158,6 +161,16 @@ export function parseIFF(lines: string[]): ParseResult {
   let currentGroup: IFFGroup | null = null;
   let activeBlock: BlockKind | null = null;
 
+  // Resolve @include directives first, then prepopulate dictionaries so the
+  // rest of the file parses against the merged state.
+  const included = resolveIncludes(lines, 'infoflow', parseIFF, options, errors);
+  locationTypes.push(...included.locationTypes);
+  systemTypes.push(...included.systemTypes);
+  flowTypes.push(...included.flowTypes);
+  const includedLocationNames = new Set(included.locationTypes.map(x => x.name.toLowerCase()));
+  const includedSystemNames   = new Set(included.systemTypes.map(x => x.name.toLowerCase()));
+  const includedFlowTypeNames = new Set(included.flowTypes.map(x => x.name.toLowerCase()));
+
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
     const rawLine = lines[i];
@@ -172,13 +185,40 @@ export function parseIFF(lines: string[]): ParseResult {
       if (rawLine.startsWith('  ') || rawLine.startsWith('\t')) {
         if (activeBlock === 'location-types') {
           const entry = parseColourBlockLine(line, lineNum, errors);
-          if (entry) locationTypes.push(entry);
+          if (entry) {
+            const lower = entry.name.toLowerCase();
+            if (includedLocationNames.has(lower)) {
+              errors.push({ line: lineNum, message: `location-type "${entry.name}" is already contributed by an @include` });
+            } else if (locationTypes.find(x => x.name.toLowerCase() === lower)) {
+              errors.push({ line: lineNum, message: `Duplicate location-type: "${entry.name}"` });
+            } else {
+              locationTypes.push(entry);
+            }
+          }
         } else if (activeBlock === 'systems') {
           const entry = parseColourBlockLine(line, lineNum, errors);
-          if (entry) systemTypes.push(entry);
+          if (entry) {
+            const lower = entry.name.toLowerCase();
+            if (includedSystemNames.has(lower)) {
+              errors.push({ line: lineNum, message: `system "${entry.name}" is already contributed by an @include` });
+            } else if (systemTypes.find(x => x.name.toLowerCase() === lower)) {
+              errors.push({ line: lineNum, message: `Duplicate system: "${entry.name}"` });
+            } else {
+              systemTypes.push(entry);
+            }
+          }
         } else {
           const entry = parseFlowTypeBlockLine(line, lineNum, errors);
-          if (entry) flowTypes.push(entry);
+          if (entry) {
+            const lower = entry.name.toLowerCase();
+            if (includedFlowTypeNames.has(lower)) {
+              errors.push({ line: lineNum, message: `flow-type "${entry.name}" is already contributed by an @include` });
+            } else if (flowTypes.find(x => x.name.toLowerCase() === lower)) {
+              errors.push({ line: lineNum, message: `Duplicate flow-type: "${entry.name}"` });
+            } else {
+              flowTypes.push(entry);
+            }
+          }
         }
         continue;
       }
@@ -192,6 +232,13 @@ export function parseIFF(lines: string[]): ParseResult {
       const { keyword, rest: value } = parseKeywordAndRest(line);
       switch (keyword) {
         case '@type':    break;
+        case '@include': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@include is not allowed inside an included file (one level only)' });
+          }
+          // Otherwise resolved by resolveIncludes pre-pass; nothing to do here.
+          break;
+        }
         case '@name':    meta.name = value; break;
         case '@version': meta.version = value; break;
         case '@date':    meta.date = value; break;
@@ -225,6 +272,10 @@ export function parseIFF(lines: string[]): ParseResult {
           break;
         }
         case '@position': {
+          if (options?.includeMode) {
+            errors.push({ line: lineNum, message: '@position is not allowed in an included file' });
+            break;
+          }
           const parts = value.split(/\s+/);
           if (parts.length !== 3) {
             errors.push({ line: lineNum, message: '@position requires exactly: @position <id> <x> <y>' });
@@ -265,6 +316,11 @@ export function parseIFF(lines: string[]): ParseResult {
     }
 
     const { keyword, rest } = parseKeywordAndRest(line);
+
+    if (options?.includeMode && POSITIONAL_KEYWORDS_IFF.has(keyword)) {
+      errors.push({ line: lineNum, message: `"${keyword}" is not allowed in an included file — included files contribute only definitions (palettes, dictionaries, defaults)` });
+      continue;
+    }
 
     switch (keyword) {
       case 'store': {
@@ -474,6 +530,7 @@ export function parseIFF(lines: string[]): ParseResult {
   if (locationTypes.length > 0) meta.locationTypes = locationTypes;
   if (systemTypes.length > 0) meta.systemTypes = systemTypes;
   if (flowTypes.length > 0) meta.flowTypes = flowTypes;
+  applyMetaDefaults(meta, included.metaDefaults);
 
   const model: IFFModel = {
     meta,
