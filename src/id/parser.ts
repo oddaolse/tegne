@@ -2,11 +2,12 @@ import type {
   IDModel, IDElement, IDConnection, IDGroup,
   IDState, Direction, PlacementPos, LabelCorner,
 } from './types';
-import type { ModelMeta, Position, ParseError, ParseResult, LocationType, ParseOptions } from '../types';
+import type { FlowType, ModelMeta, Position, ParseError, ParseResult, LocationType, ParseOptions } from '../types';
 import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 
 const POSITIONAL_KEYWORDS_ID = new Set(['system', 'database', 'queue', 'connect', 'group', 'end']);
+const VALID_FLOW_STYLES = new Set(['solid', 'dashed', 'thick']);
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -16,6 +17,21 @@ const VALID_STATES: readonly IDState[] = ['new', 'changing', 'decommissioned'];
 
 function defaultPlacement(kind: IDElement['kind']): PlacementPos {
   return kind === 'system' ? 'inside' : 'below';
+}
+
+function parseFlowTypeBlockLine(line: string, lineNum: number, errors: ParseError[]): FlowType | null {
+  const parts = line.split(/\s+/);
+  if (parts.length !== 2) {
+    errors.push({ line: lineNum, message: 'flow-type requires: <name> <style>' });
+    return null;
+  }
+  const [name, style] = parts;
+  const normalizedStyle = style.toLowerCase();
+  if (!VALID_FLOW_STYLES.has(normalizedStyle)) {
+    errors.push({ line: lineNum, message: `Unknown flow style: "${style}". Valid: solid, dashed, thick` });
+    return null;
+  }
+  return { name, style: normalizedStyle };
 }
 
 export function parseID(lines: string[], options?: ParseOptions): ParseResult {
@@ -29,12 +45,16 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
   const groups:      IDGroup[]      = [];
   const savedPositions: Record<string, Position> = {};
   const locationTypes: LocationType[] = [];
+  const flowTypes: FlowType[] = [];
   let currentGroup: IDGroup | null = null;
   let inLocationTypesBlock = false;
+  let inFlowTypesBlock = false;
 
   const included = resolveIncludes(lines, 'id', parseID, options, errors);
   locationTypes.push(...included.locationTypes);
+  flowTypes.push(...included.flowTypes);
   const includedLocationNames = new Set(included.locationTypes.map(x => x.name.toLowerCase()));
+  const includedFlowTypeNames = new Set(included.flowTypes.map(x => x.name.toLowerCase()));
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
@@ -75,6 +95,29 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
       }
     }
 
+    if (inFlowTypesBlock) {
+      if (line === '') {
+        inFlowTypesBlock = false;
+        continue;
+      }
+      if (rawLine.startsWith('  ') || rawLine.startsWith('\t')) {
+        const entry = parseFlowTypeBlockLine(line, lineNum, errors);
+        if (entry) {
+          const lower = entry.name.toLowerCase();
+          if (includedFlowTypeNames.has(lower)) {
+            errors.push({ line: lineNum, message: `flow-type "${entry.name}" is already contributed by an @include` });
+          } else if (flowTypes.find(x => x.name.toLowerCase() === lower)) {
+            errors.push({ line: lineNum, message: `Duplicate flow-type: "${entry.name}"` });
+          } else {
+            flowTypes.push(entry);
+          }
+        }
+        continue;
+      } else {
+        inFlowTypesBlock = false;
+      }
+    }
+
     if (line === '' || line.startsWith('#')) continue;
 
     // ── @ directives ─────────────────────────────────────────────────
@@ -98,6 +141,11 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
 
         case '@location-types': {
           inLocationTypesBlock = true;
+          break;
+        }
+
+        case '@flow-types': {
+          inFlowTypesBlock = true;
           break;
         }
 
@@ -273,14 +321,31 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
           break;
         }
 
-        const to       = afterArrow.slice(0, colonIdx).trim();
-        const protocol = afterArrow.slice(colonIdx + 1).trim();
+        const to = afterArrow.slice(0, colonIdx).trim();
+        const afterColon = afterArrow.slice(colonIdx + 1).trim();
+        const bracketIdx = afterColon.indexOf('[');
+        const protocol = (bracketIdx === -1 ? afterColon : afterColon.slice(0, bracketIdx)).trim();
 
         if (!from)     { errors.push({ line: lineNum, message: `connect: missing source id` });   break; }
         if (!to)       { errors.push({ line: lineNum, message: `connect: missing target id` });   break; }
         if (!protocol) { errors.push({ line: lineNum, message: `connect: missing protocol label` }); break; }
 
-        connections.push({ kind: 'connection', id: nextId('conn'), from, to, direction, protocol });
+        let flowType: string | undefined;
+        let flowTypeExplicit = false;
+        const brackets = [...afterColon.matchAll(/\[([^\]]+)\]/g)].map(match => match[1].trim());
+        for (const qualifier of brackets) {
+          if (qualifier.startsWith('flow:')) {
+            flowType = qualifier.slice(5).trim();
+            flowTypeExplicit = true;
+            if (!flowType) {
+              errors.push({ line: lineNum, message: 'connect flow qualifier requires a type: [flow:<type>]' });
+            }
+          } else {
+            errors.push({ line: lineNum, message: `Unknown connect qualifier: [${qualifier}]. Valid: [flow:<type>]` });
+          }
+        }
+
+        connections.push({ kind: 'connection', id: nextId('conn'), from, to, direction, protocol, flowType, flowTypeExplicit });
         break;
       }
 
@@ -344,6 +409,15 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
     }
   }
 
+  const flowTypeNames = new Set(flowTypes.map(entry => entry.name));
+  const defaultFlowTypes = new Set(['sync', 'async', 'batch']);
+  for (const conn of connections) {
+    if (!conn.flowType || !conn.flowTypeExplicit) continue;
+    if (!flowTypeNames.has(conn.flowType) && !defaultFlowTypes.has(conn.flowType)) {
+      errors.push({ line: 0, message: `connect "${conn.id}" references unknown flow type "${conn.flowType}"` });
+    }
+  }
+
   // Check for elements declared in multiple groups
   const memberGroupMap = new Map<string, string>();
   for (const group of groups) {
@@ -359,6 +433,9 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
   // Store location-types in meta
   if (locationTypes.length > 0) {
     meta.locationTypes = locationTypes;
+  }
+  if (flowTypes.length > 0) {
+    meta.flowTypes = flowTypes;
   }
   applyMetaDefaults(meta, included.metaDefaults);
 

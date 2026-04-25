@@ -145,7 +145,7 @@ For IT Architects documenting integration landscapes — what systems exist, how
 @theme        dark             # dark (default), light, or tokyo
 @orientation  landscape
 
-# Elements: keyword  id  [platform]  [state]  [label:below]
+# Elements: keyword  id  [platform]  [state]  [placement:inside|below]
 system    OrderSvc        [aws]
 system    PaymentSvc      [azure]
 system    LegacyAuth      [on-prem]   [decommissioned]
@@ -154,11 +154,17 @@ system    BillingSvc      [azure]     [changing]
 database  CustomerDB      [on-prem]
 queue     OrderQueue      [aws]
 
+# Flow types: name  line-style
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
 # Connections: from  direction  to  : protocol
-connect   OrderSvc    ->   OrderQueue   : SQS
-connect   OrderQueue  ->   PaymentSvc   : SQS
-connect   OrderSvc   <->   PaymentSvc   : REST
-connect   LegacyAuth  ->   OrderSvc     : SOAP
+connect   OrderSvc    ->   OrderQueue   : SQS  [flow:async]
+connect   OrderQueue  ->   PaymentSvc   : SQS  [flow:async]
+connect   OrderSvc   <->   PaymentSvc   : REST [flow:sync]
+connect   LegacyAuth  ->   OrderSvc     : SOAP [flow:sync]
 ```
 
 ### Element types
@@ -195,6 +201,7 @@ Override label placement with `[label:inside]` or `[label:below]`.
 - `->` unidirectional, `<->` bidirectional
 - Closed arrowhead for system/database connections; open arrowhead when either endpoint is a queue
 - Protocol is a free-form label: `REST`, `SQS`, `SOAP`, `Kafka`, `SFTP`, etc.
+- Optional `[flow:<type>]` controls line style. Built-ins are `sync`, `async`, and `batch`; declare `@flow-types` to map names to `solid`, `dashed`, or `thick`.
 
 ### Themes
 
@@ -202,7 +209,7 @@ The `tokyo` theme renders integration diagrams with full neon colours — glowin
 
 ### Legend box
 
-A legend is auto-generated in the upper-right corner showing every platform/state combination in use. Each entry shows a colour swatch with the correct fill, opacity, and border style. The legend is draggable and its position is saved.
+A legend is auto-generated in the upper-right corner showing every platform/state combination and flow type in use. Each platform entry shows a colour swatch with the correct fill, opacity, and border style. The legend is draggable and its position is saved.
 
 ---
 

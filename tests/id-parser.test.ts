@@ -113,6 +113,7 @@ connect A -> B : REST`);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
     expect(id.connections[0]).toMatchObject({ from: 'A', to: 'B', direction: 'unidirectional', protocol: 'REST' });
+    expect(id.connections[0].flowType).toBeUndefined();
   });
 
   it('parses a bidirectional connect', () => {
@@ -123,6 +124,52 @@ connect A <-> B : gRPC`);
     expect(errors).toHaveLength(0);
     const id = model as IDModel;
     expect(id.connections[0].direction).toBe('bidirectional');
+  });
+
+  it('parses @flow-types block', () => {
+    const dsl = `${withLocationTypes('')}
+@flow-types
+  sync solid
+  async dashed
+  batch thick`;
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    expect(model!.meta.flowTypes).toEqual([
+      { name: 'sync', style: 'solid' },
+      { name: 'async', style: 'dashed' },
+      { name: 'batch', style: 'thick' },
+    ]);
+  });
+
+  it('parses connect [flow:<type>] without changing protocol', () => {
+    const dsl = `${withLocationTypes(`system A [aws]
+system B [azure]`)}
+@flow-types
+  sync solid
+  async dashed
+
+connect A -> B : REST [flow:async]`;
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    const id = model as IDModel;
+    expect(id.connections[0]).toMatchObject({
+      from: 'A',
+      to: 'B',
+      direction: 'unidirectional',
+      protocol: 'REST',
+      flowType: 'async',
+      flowTypeExplicit: true,
+    });
+  });
+
+  it('accepts built-in flow types without an explicit @flow-types block', () => {
+    const dsl = withLocationTypes(`system A [aws]
+system B [azure]
+connect A -> B : ETL [flow:batch]`);
+    const { model, errors } = parse(dsl);
+    expect(errors).toHaveLength(0);
+    const id = model as IDModel;
+    expect(id.connections[0].flowType).toBe('batch');
   });
 
   it('parses @position directives', () => {
@@ -304,5 +351,37 @@ end`);
 system A [invalid]`;
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/unknown palette colour/i))).toBe(true);
+  });
+
+  it('reports invalid flow style in @flow-types', () => {
+    const dsl = `@type id
+@flow-types
+  realtime dotted`;
+    const { errors } = parse(dsl);
+    expect(errors.some(e => e.message.match(/unknown flow style/i))).toBe(true);
+  });
+
+  it('reports unknown connect qualifier', () => {
+    const dsl = withLocationTypes(`system A [aws]
+system B [azure]
+connect A -> B : REST [latency:low]`);
+    const { errors } = parse(dsl);
+    expect(errors.some(e => e.message.match(/unknown connect qualifier/i))).toBe(true);
+  });
+
+  it('reports unknown explicit flow type', () => {
+    const dsl = withLocationTypes(`system A [aws]
+system B [azure]
+connect A -> B : REST [flow:realtime]`);
+    const { errors } = parse(dsl);
+    expect(errors.some(e => e.message.match(/unknown flow type "realtime"/i))).toBe(true);
+  });
+
+  it('reports empty connect flow qualifier', () => {
+    const dsl = withLocationTypes(`system A [aws]
+system B [azure]
+connect A -> B : REST [flow:]`);
+    const { errors } = parse(dsl);
+    expect(errors.some(e => e.message.match(/requires a type/i))).toBe(true);
   });
 });

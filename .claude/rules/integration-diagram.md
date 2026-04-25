@@ -17,7 +17,7 @@ Allows IT Architects to draw integration landscape diagrams showing systems, dat
 - Unknown `@type` values produce a `ParseError` listing valid types (`sd`, `id`)
 - Line-by-line parsing, same approach as the SD parser
 - Keywords: `system`, `database`, `queue`, `connect`, `group` (reserved, v2 only)
-- Metadata directives: `@name`, `@version`, `@date`, `@author`, `@orientation`, `@theme`, `@position`
+- Metadata directives: `@name`, `@version`, `@date`, `@author`, `@orientation`, `@theme`, `@position`, `@location-types`, `@flow-types`
 - `@theme` supported — valid values: `dark`, `light`, `tokyo`
 - `@position` lines written by Save; read back to restore layout
 
@@ -51,10 +51,13 @@ queue     <id>  [<platform>]  [<state>]  [placement:inside]
 ```
 connect  <from>  ->   <to>  : <protocol>
 connect  <from>  <->  <to>  : <protocol>
+connect  <from>  ->   <to>  : <protocol> [flow:<type>]
+connect  <from>  <->  <to>  : <protocol> [flow:<type>]
 ```
 
 - `->` unidirectional; `<->` bidirectional
 - `<protocol>` free-form text label (REST, SQS, SOAP, Kafka, SFTP, etc.)
+- `[flow:<type>]` optional visual metadata; explicit values must be declared in `@flow-types` or use built-ins `sync`, `async`, `batch`
 - `<from>` and `<to>` must resolve to a declared element id; unknown ids produce a `ParseError`
 
 ---
@@ -124,11 +127,28 @@ Tokyo canvas background: `#0d0d14`. Glow: `feGaussianBlur stdDeviation=3`.
 | Either endpoint is a `queue` | Open arrowhead |
 | All other connections | Closed/filled arrowhead |
 
+### Flow Styles
+
+Declared with:
+
+```
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+```
+
+| Flow style | Line |
+|---|---|
+| `solid` | Normal solid line |
+| `dashed` | Dashed line |
+| `thick` | Thick solid line |
+
 ---
 
 ## Legend Box
 
-Rendered automatically in the **upper-right corner** of the page area. Present only in ID diagrams.
+Rendered automatically in the **upper-right corner** of the page area. Present only in ID diagrams. Also lists flow types used by `model.connections`.
 
 - Scans `model.elements` for unique `(platform, state)` combinations actually in use — does not show unused combinations
 - Each row: a small swatch rect (22×14px, rx=2) using the correct platform fill, `fill-opacity`, and border style, followed by a text label (`aws`, `azure · changing`, etc.)

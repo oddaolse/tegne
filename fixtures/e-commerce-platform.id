@@ -14,6 +14,11 @@
   oracle red
   on-prem grey
 
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
 group frontend Frontend [corner:upper-left]
 system   web_app              [aws]       [changing]
 system   mobile_app           [azure]     [new]
@@ -39,19 +44,19 @@ end
 system   legacy_auth          [on-prem]   [decommissioned]
 system   fraud_detect         [gcp]       [placement:below]
 
-connect  web_app             ->   order_service        : REST
-connect  mobile_app          ->   order_service        : REST
-connect  order_service      <->   payment_service      : REST
-connect  order_service       ->   message_queue        : SQS
-connect  message_queue       ->   payment_service      : SQS
-connect  payment_service     ->   notification_service : gRPC
-connect  notification_service ->  notification_queue   : SQS
-connect  notification_queue  ->   mobile_app           : WebSocket
-connect  order_service       ->   order_db             : JDBC
-connect  payment_service     ->   payment_db           : JDBC
-connect  order_service       ->   analytics_db         : ETL
-connect  legacy_auth         ->   web_app              : SOAP
-connect  fraud_detect        ->   payment_service      : REST
+connect  web_app             ->   order_service        : REST      [flow:sync]
+connect  mobile_app          ->   order_service        : REST      [flow:sync]
+connect  order_service      <->   payment_service      : REST      [flow:sync]
+connect  order_service       ->   message_queue        : SQS       [flow:async]
+connect  message_queue       ->   payment_service      : SQS       [flow:async]
+connect  payment_service     ->   notification_service : gRPC      [flow:sync]
+connect  notification_service ->  notification_queue   : SQS       [flow:async]
+connect  notification_queue  ->   mobile_app           : WebSocket [flow:async]
+connect  order_service       ->   order_db             : JDBC      [flow:sync]
+connect  payment_service     ->   payment_db           : JDBC      [flow:sync]
+connect  order_service       ->   analytics_db         : ETL       [flow:batch]
+connect  legacy_auth         ->   web_app              : SOAP      [flow:sync]
+connect  fraud_detect        ->   payment_service      : REST      [flow:sync]
 
 @position web_app 188 198
 @position mobile_app 462 199

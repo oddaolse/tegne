@@ -6,13 +6,18 @@
   gcp green
   on-prem grey
 
+@flow-types
+  sync solid
+  async dashed
+  batch thick
+
 system   WebApp      [aws]
 system   ApiSvc      [azure]
 system   AuthSvc     [gcp]
 database CustomerDB  [on-prem]
 queue    EventQueue  [aws]
 
-connect  WebApp    ->   ApiSvc     : REST
-connect  WebApp    ->   AuthSvc    : REST
-connect  ApiSvc    ->   CustomerDB : JDBC
-connect  ApiSvc    ->   EventQueue : SQS
+connect  WebApp    ->   ApiSvc     : REST [flow:sync]
+connect  WebApp    ->   AuthSvc    : REST [flow:sync]
+connect  ApiSvc    ->   CustomerDB : JDBC [flow:sync]
+connect  ApiSvc    ->   EventQueue : SQS [flow:async]

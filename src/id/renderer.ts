@@ -2,6 +2,7 @@ import * as d3 from 'd3';
 import type { IDModel, IDElement, IDGroup, LabelCorner, Position, IDState } from './types';
 import { getTheme, getLocationColour } from '../themes';
 import type { IDTheme } from '../themes';
+import type { FlowType } from '../types';
 import { pageRect } from '../sd/renderer';
 import {
   SYS_H, DB_BODY_H, DB_RY, Q_H,
@@ -78,6 +79,26 @@ function elementEdge(el: IDElement, tx: number, ty: number): Position {
   return { x: el.x + dx * t, y: el.y + dy * t };
 }
 
+const DEFAULT_FLOW_STYLES: Record<string, string> = {
+  sync: 'solid',
+  async: 'dashed',
+  batch: 'thick',
+};
+
+export function idFlowStyle(flowType: string | undefined, declaredFlowTypes: FlowType[] | undefined): { dashArray: string | null; strokeWidth: number } {
+  const style = declaredFlowTypes?.find(entry => entry.name === flowType)?.style
+    ?? (flowType ? DEFAULT_FLOW_STYLES[flowType.toLowerCase()] : undefined)
+    ?? flowType;
+  switch ((style ?? '').toLowerCase()) {
+    case 'dashed':
+      return { dashArray: '6,4', strokeWidth: 1.5 };
+    case 'thick':
+      return { dashArray: null, strokeWidth: 3 };
+    default:
+      return { dashArray: null, strokeWidth: 1.5 };
+  }
+}
+
 // ── Marker and filter definitions ─────────────────────────────────────────────
 
 function defineDefsSection(
@@ -128,6 +149,24 @@ function findElement(id: string, model: IDModel): IDElement | undefined {
   return model.elements.find(e => e.id === id);
 }
 
+function uniqueFlowEntries(model: IDModel): string[] {
+  const seen = new Set<string>();
+  const entries: string[] = [];
+  for (const conn of model.connections) {
+    if (!conn.flowType || seen.has(conn.flowType)) continue;
+    seen.add(conn.flowType);
+    entries.push(conn.flowType);
+  }
+
+  const flowTypeOrder = (model.meta.flowTypes ?? []).map(entry => entry.name);
+  entries.sort((a, b) => {
+    const ai = flowTypeOrder.indexOf(a);
+    const bi = flowTypeOrder.indexOf(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+  return entries;
+}
+
 function drawConnections(
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
   model: IDModel,
@@ -143,6 +182,7 @@ function drawConnections(
 
     const useOpen  = fromEl.kind === 'queue' || toEl.kind === 'queue';
     const markerId = useOpen ? 'id-arrow-open' : 'id-arrow-closed';
+    const flowStyle = idFlowStyle(conn.flowType, model.meta.flowTypes);
 
     const g = svg.append('g').attr('class', 'id-connection').attr('data-id', conn.id);
 
@@ -150,11 +190,14 @@ function drawConnections(
       .attr('x1', fromEdge.x).attr('y1', fromEdge.y)
       .attr('x2', toEdge.x).attr('y2', toEdge.y)
       .attr('stroke', theme.connStroke)
-      .attr('stroke-width', 1.5)
+      .attr('stroke-width', flowStyle.strokeWidth)
       .attr('marker-end', `url(#${markerId})`);
 
     if (conn.direction === 'bidirectional') {
       line.attr('marker-start', `url(#${markerId})`);
+    }
+    if (flowStyle.dashArray) {
+      line.attr('stroke-dasharray', flowStyle.dashArray);
     }
 
     const mx = (fromEdge.x + toEdge.x) / 2;
@@ -374,7 +417,8 @@ function drawLegendBox(
       entries.push({ locationType: el.locationType, state: el.state });
     }
   }
-  if (entries.length === 0) return;
+  const flowEntries = uniqueFlowEntries(model);
+  if (entries.length === 0 && flowEntries.length === 0) return;
 
   // Sort by location-type declaration order, then by state
   const locationTypeOrder = (model.meta.locationTypes ?? []).map(lt => lt.name);
@@ -390,9 +434,10 @@ function drawLegendBox(
   const LINE_H   = 22;
   const SWATCH_W = 22;
   const SWATCH_H = 14;
-  const BOX_W    = 240;
+  const BOX_W    = 260;
   const HEADER_H = LINE_H;
-  const BOX_H    = PAD * 2 + HEADER_H + entries.length * LINE_H;
+  const SECTION_H = entries.length > 0 && flowEntries.length > 0 ? LINE_H : 0;
+  const BOX_H    = PAD * 2 + HEADER_H + SECTION_H + (entries.length + flowEntries.length) * LINE_H;
 
   const p     = pageRect(model.meta.orientation, model.meta.size);
   const saved = model.savedPositions['__legend__'];
@@ -420,8 +465,9 @@ function drawLegendBox(
     .attr('font-style', 'italic')
     .text('Legend');
 
-  entries.forEach((entry, i) => {
-    const rowY   = PAD + HEADER_H + i * LINE_H;
+  let row = 0;
+  entries.forEach((entry) => {
+    const rowY   = PAD + HEADER_H + row * LINE_H;
     const border = getBorderStyle(entry.state);
     const locationType = model.meta.locationTypes?.find(lt => lt.name === entry.locationType);
     const fill   = locationType
@@ -449,6 +495,40 @@ function drawLegendBox(
       .attr('font-family', 'Courier New, Courier, monospace')
       .attr('font-size', '11px')
       .text(`${entry.locationType}${stateLabel}`);
+    row++;
+  });
+
+  if (entries.length > 0 && flowEntries.length > 0) {
+    g.append('text')
+      .attr('x', PAD).attr('y', PAD + HEADER_H + row * LINE_H + 15)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '10px')
+      .attr('font-style', 'italic')
+      .text('Flows');
+    row++;
+  }
+
+  flowEntries.forEach((flowType) => {
+    const rowY = PAD + HEADER_H + row * LINE_H;
+    const style = idFlowStyle(flowType, model.meta.flowTypes);
+    const swatch = g.append('line')
+      .attr('x1', PAD)
+      .attr('y1', rowY + LINE_H / 2)
+      .attr('x2', PAD + SWATCH_W)
+      .attr('y2', rowY + LINE_H / 2)
+      .attr('stroke', theme.connStroke)
+      .attr('stroke-width', style.strokeWidth);
+    if (style.dashArray) swatch.attr('stroke-dasharray', style.dashArray);
+
+    g.append('text')
+      .attr('x', PAD + SWATCH_W + 8)
+      .attr('y', rowY + LINE_H / 2 + 4)
+      .attr('fill', theme.metaBox.text)
+      .attr('font-family', 'Courier New, Courier, monospace')
+      .attr('font-size', '11px')
+      .text(flowType);
+    row++;
   });
 }
 
