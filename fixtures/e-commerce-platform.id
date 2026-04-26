@@ -10,9 +10,9 @@
 @location-types
   aws orange
   azure blue
-  gcp green
+  gcp grey
   oracle red
-  on-prem grey
+  on-prem green
 
 @flow-types
   sync solid
@@ -20,14 +20,15 @@
   batch thick
 
 group frontend Frontend [corner:upper-left]
-system   web_app              [aws]       [changing]
-system   mobile_app           [azure]     [new]
+  system   web_app_abc   [aws]   [changing]
+  system   web_app_def   [aws]   [new]
+  system   mobile_app    [aws]
 end
 
 group backend Backend Services [corner:upper-right]
-system   order_service        [aws]
-system   payment_service      [azure]
-system   notification_service [gcp]       [new]
+  system   order_service        [azure]
+  system   payment_service      [azure]   [new]
+  system   notification_service [azure]   [changing]
 end
 
 group data Data Layer [corner:lower-right]
@@ -41,10 +42,10 @@ queue    message_queue        [aws]
 queue    notification_queue   [azure]
 end
 
-system   legacy_auth          [on-prem]   [decommissioned]
+system   legacy_auth          [on-prem]   
 system   fraud_detect         [gcp]       [placement:below]
 
-connect  web_app             ->   order_service        : REST      [flow:sync]
+connect  web_app_abc         ->   order_service        : REST      [flow:sync]
 connect  mobile_app          ->   order_service        : REST      [flow:sync]
 connect  order_service      <->   payment_service      : REST      [flow:sync]
 connect  order_service       ->   message_queue        : SQS       [flow:async]
@@ -55,19 +56,20 @@ connect  notification_queue  ->   mobile_app           : WebSocket [flow:async]
 connect  order_service       ->   order_db             : JDBC      [flow:sync]
 connect  payment_service     ->   payment_db           : JDBC      [flow:sync]
 connect  order_service       ->   analytics_db         : ETL       [flow:batch]
-connect  legacy_auth         ->   web_app              : SOAP      [flow:sync]
+connect  legacy_auth         ->   web_app_def          : SOAP      [flow:sync]
 connect  fraud_detect        ->   payment_service      : REST      [flow:sync]
 
-@position web_app 188 198
-@position mobile_app 462 199
-@position order_service 377 394
-@position payment_service 616 392
-@position notification_service 836 392
-@position order_db 410 606
-@position payment_db 594 610
-@position analytics_db 226 605
-@position message_queue 712 210
-@position notification_queue 857 118
-@position legacy_auth 456 66
-@position fraud_detect 882 548
+@position web_app_abc 164 212
+@position web_app_def 321 252
+@position mobile_app 476 192
+@position order_service 317 497
+@position payment_service 568 499
+@position notification_service 846 494
+@position order_db 563 713
+@position payment_db 747 717
+@position analytics_db 379 712
+@position message_queue 731 263
+@position notification_queue 876 171
+@position legacy_auth 336 60
+@position fraud_detect 965 697
 @position __meta__ 42 720

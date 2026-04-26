@@ -2,6 +2,8 @@
 @theme light
 @size a4
 
+# valid colours are: green, blue, red, orange, purple, grey, yellow, cyan, pink, teal
+
 @location-types
   master orange
   replica cyan
