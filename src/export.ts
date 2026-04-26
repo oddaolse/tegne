@@ -38,6 +38,9 @@ export async function saveSD(dslText: string, model: SDModel): Promise<void> {
     .map(n => `@position ${n.id} ${Math.round(n.x)} ${Math.round(n.y)}`)
     .join('\n');
 
+  for (const tb of model.textBlocks) {
+    posLines += `\n@position ${tb.id} ${Math.round(tb.x)} ${Math.round(tb.y)}`;
+  }
   const metaPos = model.savedPositions['__meta__'];
   if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
 
@@ -61,6 +64,9 @@ export async function saveID(dslText: string, model: IDModel): Promise<void> {
     .map(e => `@position ${e.id} ${Math.round(e.x)} ${Math.round(e.y)}`)
     .join('\n');
 
+  for (const tb of model.textBlocks) {
+    posLines += `\n@position ${tb.id} ${Math.round(tb.x)} ${Math.round(tb.y)}`;
+  }
   const metaPos = model.savedPositions['__meta__'];
   if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
 
@@ -84,6 +90,9 @@ export async function saveIFF(dslText: string, model: IFFModel): Promise<void> {
     .map(node => `@position ${node.id} ${Math.round(node.x)} ${Math.round(node.y)}`)
     .join('\n');
 
+  for (const tb of model.textBlocks) {
+    posLines += `\n@position ${tb.id} ${Math.round(tb.x)} ${Math.round(tb.y)}`;
+  }
   const metaPos = model.savedPositions['__meta__'];
   if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
 
@@ -107,6 +116,9 @@ export async function saveTM(dslText: string, model: TMModel): Promise<void> {
     .map(r => `@position ${r.id} ${Math.round(r.x)} ${Math.round(r.y)}`)
     .join('\n');
 
+  for (const tb of model.textBlocks) {
+    posLines += `\n@position ${tb.id} ${Math.round(tb.x)} ${Math.round(tb.y)}`;
+  }
   const metaPos = model.savedPositions['__meta__'];
   if (metaPos) posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
   const mitPos = model.savedPositions['__mitigations__'];

@@ -1,4 +1,4 @@
-import type { ModelMeta, Position } from '../types';
+import type { ModelMeta, Position, TextBlock } from '../types';
 import type { StrideCategory } from '../themes';
 
 export type { StrideCategory } from '../themes';
@@ -38,6 +38,8 @@ export interface TMMitigation {
   description: string;
 }
 
+export type { TextBlock } from '../types';   // re-export for tm/ consumers
+
 export interface TMModel {
   meta:           ModelMeta;
   refFiles:       string[];
@@ -46,5 +48,6 @@ export interface TMModel {
   flows:          TMFlow[];
   threats:        TMThreat[];
   mitigations:    TMMitigation[];
+  textBlocks:     TextBlock[];
   savedPositions: Record<string, Position>;
 }

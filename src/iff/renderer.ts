@@ -536,6 +536,71 @@ function drawIffLegendBox(svg: IffSvgSel, model: IFFModel, theme: IFFTheme): voi
   }
 }
 
+// ── Text blocks ───────────────────────────────────────────────────────────────
+
+const TB_PADDING   = 12;
+const TB_LINE_H    = 16;
+const TB_FONT_SIZE = 12;
+const TB_MIN_WIDTH = 160;
+
+function drawTextBlocks(svg: IffSvgSel, model: IFFModel): void {
+  const textBlockTheme = getTheme(model.meta.theme).textBlock;
+  for (let idx = 0; idx < model.textBlocks.length; idx++) {
+    const tb    = model.textBlocks[idx];
+    const saved = model.savedPositions[tb.id];
+    if (saved) { tb.x = saved.x; tb.y = saved.y; }
+    else { tb.x = 200 + idx * 20; tb.y = 80 + idx * 20; }
+
+    const lines  = tb.content.split('\n');
+    const maxLen = Math.max(...lines.map(l => l.length));
+    const tbW    = Math.max(TB_MIN_WIDTH, maxLen * 7 + TB_PADDING * 2);
+    const tbH    = lines.length * TB_LINE_H + TB_PADDING * 2;
+
+    const g = svg.append('g')
+      .attr('class', 'textblock')
+      .attr('data-id', tb.id)
+      .attr('transform', `translate(${tb.x},${tb.y})`)
+      .style('cursor', 'move');
+
+    g.append('rect')
+      .attr('width', tbW).attr('height', tbH)
+      .attr('rx', 4)
+      .attr('fill', textBlockTheme.fill)
+      .attr('stroke', textBlockTheme.stroke)
+      .attr('stroke-width', 1);
+
+    lines.forEach((line, i) => {
+      g.append('text')
+        .attr('x', TB_PADDING)
+        .attr('y', TB_PADDING + TB_FONT_SIZE + i * TB_LINE_H)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', `${TB_FONT_SIZE}px`)
+        .attr('fill', textBlockTheme.text)
+        .text(line);
+    });
+  }
+}
+
+export function attachIffTextBlockDrag(svg: IffSvgSel, model: IFFModel, onUpdate?: () => void): void {
+  svg.selectAll<SVGGElement, unknown>('g.textblock').each(function () {
+    const el   = this as SVGGElement;
+    const tbId = el.getAttribute('data-id')!;
+    const tb   = model.textBlocks.find(t => t.id === tbId);
+    if (!tb) return;
+
+    d3.select(el).call(
+      d3.drag<SVGGElement, unknown>()
+        .on('drag', function (event) {
+          tb.x += event.dx;
+          tb.y += event.dy;
+          model.savedPositions[tbId] = { x: Math.round(tb.x), y: Math.round(tb.y) };
+          d3.select(el).attr('transform', `translate(${tb.x},${tb.y})`);
+          onUpdate?.();
+        }),
+    );
+  });
+}
+
 export function attachIffDrag(svg: IffSvgSel, model: IFFModel, onDragEnd?: () => void): void {
   const drag = d3.drag<SVGGElement, unknown>()
     .on('drag', function (event) {
@@ -619,6 +684,7 @@ export function iffRender(svg: IffSvgSel, model: IFFModel): void {
   drawGroups(svg, model, theme);
   drawLinks(svg, model, theme);
   drawNodes(svg, model, theme);
+  drawTextBlocks(svg, model);
   if (model.meta.legend !== false) drawIffLegendBox(svg, model, theme);
   drawMetaBox(svg, model, theme);
 }
@@ -629,6 +695,7 @@ export function iffRedrawLinks(svg: IffSvgSel, model: IFFModel): void {
   drawLinks(svg, model, theme);
   updateGroupRects(svg, model);
   svg.selectAll('g.iff-node').raise();
+  svg.selectAll('g.textblock').raise();
   svg.selectAll('.legend-box').raise();
   svg.selectAll('.meta-box').raise();
 }

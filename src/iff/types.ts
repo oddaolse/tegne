@@ -1,4 +1,4 @@
-import type { FlowType, ModelMeta, Position, SystemType } from '../types';
+import type { FlowType, ModelMeta, Position, SystemType, TextBlock } from '../types';
 
 export type { Position } from '../types';  // re-export for convenience within iff/
 
@@ -51,10 +51,13 @@ export interface IFFNodeRegistry {
   nodes:     IFFNode[];
 }
 
+export type { TextBlock } from '../types';   // re-export for iff/ consumers
+
 export interface IFFModel extends IFFNodeRegistry {
   meta:           ModelMeta;
   links:          IFFLink[];
   groups:         IFFGroup[];
+  textBlocks:     TextBlock[];
   savedPositions: Record<string, Position>;
   systemTypes?:   SystemType[];
   flowTypes?:     FlowType[];

@@ -1,5 +1,5 @@
 import type { TMModel, TMRef, TMBoundary, TMFlow, TMThreat, TMMitigation } from './types';
-import type { ModelMeta, Position, ParseError, ParseResult, ParseOptions } from '../types';
+import type { ModelMeta, Position, TextBlock, ParseError, ParseResult, ParseOptions } from '../types';
 import type { StrideCategory } from '../themes';
 import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES } from '../themes';
@@ -7,7 +7,7 @@ import { THEMES } from '../themes';
 function todayISO(): string { return new Date().toISOString().slice(0, 10); }
 
 const VALID_STRIDE = new Set<string>(['S', 'T', 'R', 'I', 'D', 'E']);
-const POSITIONAL_KEYWORDS_TM = new Set(['ref', 'boundary', 'flow', 'threat', 'mitigate', 'end']);
+const POSITIONAL_KEYWORDS_TM = new Set(['ref', 'boundary', 'flow', 'threat', 'mitigate', 'end', 'text']);
 
 export function parseTM(lines: string[], options?: ParseOptions): ParseResult {
   let idCounter = 0;
@@ -21,6 +21,7 @@ export function parseTM(lines: string[], options?: ParseOptions): ParseResult {
   const flows:       TMFlow[]        = [];
   const threats:     TMThreat[]      = [];
   const mitigations: TMMitigation[]  = [];
+  const textBlocks:  TextBlock[]     = [];
   const savedPositions: Record<string, Position> = {};
 
   let currentBoundary: TMBoundary | null = null;
@@ -232,6 +233,43 @@ export function parseTM(lines: string[], options?: ParseOptions): ParseResult {
         break;
       }
 
+      // text [<id>]
+      // "<content>"
+      case 'text': {
+        const tbId = rest.trim() || nextId('text');
+        let j = i + 1;
+        while (j < lines.length && (lines[j].trim() === '' || lines[j].trim().startsWith('#'))) j++;
+        if (j >= lines.length || !lines[j].trim().startsWith('"')) {
+          errors.push({ line: lineNum, message: 'text block: expected quoted content on the following line(s), starting with "' });
+          break;
+        }
+        const firstContentLine = lines[j].trim().slice(1);
+        if (firstContentLine.endsWith('"')) {
+          textBlocks.push({ kind: 'textblock', id: tbId, content: firstContentLine.slice(0, -1), x: 0, y: 0 });
+          i = j;
+        } else {
+          const contentLines = [firstContentLine];
+          j++;
+          let closed = false;
+          while (j < lines.length) {
+            const cl = lines[j].trim();
+            if (cl.endsWith('"')) {
+              contentLines.push(cl.slice(0, -1).trimEnd());
+              textBlocks.push({ kind: 'textblock', id: tbId, content: contentLines.join('\n'), x: 0, y: 0 });
+              i = j;
+              closed = true;
+              break;
+            }
+            contentLines.push(cl);
+            j++;
+          }
+          if (!closed) {
+            errors.push({ line: lineNum, message: 'text block: unclosed quote — missing closing "' });
+          }
+        }
+        break;
+      }
+
       default:
         errors.push({ line: lineNum, message: `Unknown keyword: "${keyword}"` });
     }
@@ -257,6 +295,6 @@ export function parseTM(lines: string[], options?: ParseOptions): ParseResult {
 
   applyMetaDefaults(meta, included.metaDefaults);
 
-  const model: TMModel = { meta, refFiles, refs, boundaries, flows, threats, mitigations, savedPositions };
+  const model: TMModel = { meta, refFiles, refs, boundaries, flows, threats, mitigations, textBlocks, savedPositions };
   return { model, errors };
 }

@@ -2,11 +2,11 @@ import type {
   IDModel, IDElement, IDConnection, IDGroup,
   IDState, Direction, PlacementPos, LabelCorner,
 } from './types';
-import type { FlowType, ModelMeta, Position, ParseError, ParseResult, LocationType, ParseOptions } from '../types';
+import type { FlowType, ModelMeta, Position, TextBlock, ParseError, ParseResult, LocationType, ParseOptions } from '../types';
 import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 
-const POSITIONAL_KEYWORDS_ID = new Set(['system', 'database', 'queue', 'connect', 'group', 'end']);
+const POSITIONAL_KEYWORDS_ID = new Set(['system', 'database', 'queue', 'connect', 'group', 'end', 'text']);
 const VALID_FLOW_STYLES = new Set(['solid', 'dashed', 'thick']);
 
 function todayISO(): string {
@@ -43,6 +43,7 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
   const elements:    IDElement[]    = [];
   const connections: IDConnection[] = [];
   const groups:      IDGroup[]      = [];
+  const textBlocks:  TextBlock[]    = [];
   const savedPositions: Record<string, Position> = {};
   const locationTypes: LocationType[] = [];
   const flowTypes: FlowType[] = [];
@@ -389,6 +390,43 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
         break;
       }
 
+      // text [<id>]
+      // "<content>"
+      case 'text': {
+        const tbId = rest.trim() || nextId('text');
+        let j = i + 1;
+        while (j < lines.length && (lines[j].trim() === '' || lines[j].trim().startsWith('#'))) j++;
+        if (j >= lines.length || !lines[j].trim().startsWith('"')) {
+          errors.push({ line: lineNum, message: 'text block: expected quoted content on the following line(s), starting with "' });
+          break;
+        }
+        const firstContentLine = lines[j].trim().slice(1);
+        if (firstContentLine.endsWith('"')) {
+          textBlocks.push({ kind: 'textblock', id: tbId, content: firstContentLine.slice(0, -1), x: 0, y: 0 });
+          i = j;
+        } else {
+          const contentLines = [firstContentLine];
+          j++;
+          let closed = false;
+          while (j < lines.length) {
+            const cl = lines[j].trim();
+            if (cl.endsWith('"')) {
+              contentLines.push(cl.slice(0, -1).trimEnd());
+              textBlocks.push({ kind: 'textblock', id: tbId, content: contentLines.join('\n'), x: 0, y: 0 });
+              i = j;
+              closed = true;
+              break;
+            }
+            contentLines.push(cl);
+            j++;
+          }
+          if (!closed) {
+            errors.push({ line: lineNum, message: 'text block: unclosed quote — missing closing "' });
+          }
+        }
+        break;
+      }
+
       default:
         errors.push({ line: lineNum, message: `Unknown keyword: "${keyword}"` });
     }
@@ -439,6 +477,6 @@ export function parseID(lines: string[], options?: ParseOptions): ParseResult {
   }
   applyMetaDefaults(meta, included.metaDefaults);
 
-  const model: IDModel = { meta, elements, connections, groups, savedPositions };
+  const model: IDModel = { meta, elements, connections, groups, textBlocks, savedPositions };
   return { model, errors };
 }

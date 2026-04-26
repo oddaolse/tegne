@@ -2,11 +2,11 @@ import type {
   Polarity, CloudRole, FlowStrength, SDLabelCorner,
   Stock, Cloud, Auxiliary, Flow, Connector, SDGroup, SDModel,
 } from './types';
-import type { ModelMeta, Position, ParseResult, ParseError, ParseOptions } from '../types';
+import type { ModelMeta, Position, TextBlock, ParseResult, ParseError, ParseOptions } from '../types';
 import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES } from '../themes';
 
-const POSITIONAL_KEYWORDS_SD = new Set(['stock', 'cloud', 'flow', 'aux', 'connector', 'group', 'end']);
+const POSITIONAL_KEYWORDS_SD = new Set(['stock', 'cloud', 'flow', 'aux', 'connector', 'group', 'end', 'text']);
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -55,6 +55,7 @@ export function parseSD(lines: string[], options?: ParseOptions): ParseResult {
   const flows:       Flow[]       = [];
   const connectors:  Connector[]  = [];
   const groups:      SDGroup[]    = [];
+  const textBlocks:  TextBlock[]  = [];
   const savedPositions: Record<string, Position> = {};
 
   const flowLabels = new Set<string>();
@@ -343,6 +344,46 @@ export function parseSD(lines: string[], options?: ParseOptions): ParseResult {
         break;
       }
 
+      // text [<id>]
+      // "<content line 1>
+      // content line 2"
+      case 'text': {
+        const tbId = rest.trim() || nextId('text');
+        // Scan forward for the quoted content block
+        let j = i + 1;
+        while (j < lines.length && (lines[j].trim() === '' || lines[j].trim().startsWith('#'))) j++;
+        if (j >= lines.length || !lines[j].trim().startsWith('"')) {
+          errors.push({ line: lineNum, message: 'text block: expected quoted content on the following line(s), starting with "' });
+          break;
+        }
+        const firstContentLine = lines[j].trim().slice(1);  // strip leading "
+        if (firstContentLine.endsWith('"')) {
+          // Single line: "content"
+          textBlocks.push({ kind: 'textblock', id: tbId, content: firstContentLine.slice(0, -1), x: 0, y: 0 });
+          i = j;
+        } else {
+          const contentLines = [firstContentLine];
+          j++;
+          let closed = false;
+          while (j < lines.length) {
+            const cl = lines[j].trim();
+            if (cl.endsWith('"')) {
+              contentLines.push(cl.slice(0, -1).trimEnd());
+              textBlocks.push({ kind: 'textblock', id: tbId, content: contentLines.join('\n'), x: 0, y: 0 });
+              i = j;
+              closed = true;
+              break;
+            }
+            contentLines.push(cl);
+            j++;
+          }
+          if (!closed) {
+            errors.push({ line: lineNum, message: 'text block: unclosed quote — missing closing "' });
+          }
+        }
+        break;
+      }
+
       default:
         errors.push({ line: lineNum, message: `Unknown keyword: "${keyword}"` });
     }
@@ -408,7 +449,7 @@ export function parseSD(lines: string[], options?: ParseOptions): ParseResult {
   applyMetaDefaults(meta, included.metaDefaults);
 
   const model: SDModel = {
-    meta, stocks, clouds, auxiliaries, flows, connectors, groups, savedPositions,
+    meta, stocks, clouds, auxiliaries, flows, connectors, groups, textBlocks, savedPositions,
   };
 
   return { model, errors };

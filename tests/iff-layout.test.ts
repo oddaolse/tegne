@@ -18,6 +18,7 @@ function modelWithNodes(nodes: Array<IFFStore | IFFProcess>): IFFModel {
     nodes,
     links: [],
     groups: [],
+    textBlocks: [],
     savedPositions: {},
   };
 }

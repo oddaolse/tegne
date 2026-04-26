@@ -35,6 +35,12 @@ export interface ModelMeta {
 
 export interface Position { x: number; y: number; }
 
+export interface TextBlock extends Position {
+  kind:    'textblock';
+  id:      string;
+  content: string;   // may contain newlines
+}
+
 export interface ParseError {
   line:    number;
   message: string;

@@ -1,4 +1,4 @@
-import type { ModelMeta, Position } from '../types';
+import type { ModelMeta, Position, TextBlock } from '../types';
 
 export type { Position } from '../types';  // re-export for convenience within id/
 
@@ -35,10 +35,13 @@ export interface IDGroup {
   labelCorner: LabelCorner;
 }
 
+export type { TextBlock } from '../types';   // re-export for id/ consumers
+
 export interface IDModel {
   meta:           ModelMeta;
   elements:       IDElement[];
   connections:    IDConnection[];
   groups:         IDGroup[];
+  textBlocks:     TextBlock[];
   savedPositions: Record<string, Position>;
 }

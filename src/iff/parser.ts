@@ -3,12 +3,12 @@ import type {
   IFFRelationship, IFFState, IFFLabelCorner,
 } from './types';
 import type {
-  FlowType, LocationType, ModelMeta, ParseError, ParseOptions, ParseResult, Position, SystemType,
+  FlowType, LocationType, ModelMeta, ParseError, ParseOptions, ParseResult, Position, SystemType, TextBlock,
 } from '../types';
 import { applyMetaDefaults, resolveIncludes } from '../include';
 import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 
-const POSITIONAL_KEYWORDS_IFF = new Set(['store', 'process', 'connect', 'link', 'group', 'end']);
+const POSITIONAL_KEYWORDS_IFF = new Set(['store', 'process', 'connect', 'link', 'group', 'end', 'text']);
 
 const VALID_RELATIONSHIPS: readonly IFFRelationship[] = [
   'replicate', 'publish', 'ingest', 'derive', 'aggregate', 'enrich', 'serve',
@@ -188,6 +188,7 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
   const processes: IFFProcess[] = [];
   const links: IFFLink[] = [];
   const groups: IFFGroup[] = [];
+  const textBlocks: TextBlock[] = [];
   const savedPositions: Record<string, Position> = {};
   const locationTypes: LocationType[] = [];
   const systemTypes: SystemType[] = [];
@@ -517,6 +518,43 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
         break;
       }
 
+      // text [<id>]
+      // "<content>"
+      case 'text': {
+        const tbId = rest.trim() || nextId('text');
+        let j = i + 1;
+        while (j < lines.length && (lines[j].trim() === '' || lines[j].trim().startsWith('#'))) j++;
+        if (j >= lines.length || !lines[j].trim().startsWith('"')) {
+          errors.push({ line: lineNum, message: 'text block: expected quoted content on the following line(s), starting with "' });
+          break;
+        }
+        const firstContentLine = lines[j].trim().slice(1);
+        if (firstContentLine.endsWith('"')) {
+          textBlocks.push({ kind: 'textblock', id: tbId, content: firstContentLine.slice(0, -1), x: 0, y: 0 });
+          i = j;
+        } else {
+          const contentLines = [firstContentLine];
+          j++;
+          let closed = false;
+          while (j < lines.length) {
+            const cl = lines[j].trim();
+            if (cl.endsWith('"')) {
+              contentLines.push(cl.slice(0, -1).trimEnd());
+              textBlocks.push({ kind: 'textblock', id: tbId, content: contentLines.join('\n'), x: 0, y: 0 });
+              i = j;
+              closed = true;
+              break;
+            }
+            contentLines.push(cl);
+            j++;
+          }
+          if (!closed) {
+            errors.push({ line: lineNum, message: 'text block: unclosed quote — missing closing "' });
+          }
+        }
+        break;
+      }
+
       default:
         errors.push({ line: lineNum, message: `Unknown keyword: "${keyword}"` });
     }
@@ -584,6 +622,7 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
     nodes,
     links,
     groups,
+    textBlocks,
     savedPositions,
     systemTypes: systemTypes.length > 0 ? systemTypes : undefined,
     flowTypes: flowTypes.length > 0 ? flowTypes : undefined,

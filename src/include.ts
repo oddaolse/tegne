@@ -136,7 +136,7 @@ export function resolveIncludes(
 export function applyMetaDefaults(meta: ModelMeta, defaults: IncludedContent['metaDefaults']): void {
   for (const key of META_DEFAULT_KEYS) {
     if (meta[key] === undefined && defaults[key] !== undefined) {
-      (meta as Record<string, unknown>)[key] = defaults[key];
+      (meta as unknown as Record<string, unknown>)[key] = defaults[key];
     }
   }
 }

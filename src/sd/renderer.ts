@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import type { SDModel, SDGroup, SDLabelCorner, Node, Flow, FlowStrength, Position } from './types';
+import type { SDModel, SDGroup, SDLabelCorner, Node, Stock, Auxiliary, Flow, FlowStrength, Position } from './types';
 import { getTheme } from '../themes';
 import type { Theme } from '../themes';
 
@@ -50,7 +50,7 @@ function nodeBounds(node: Node): { hw: number; hh: number } {
 function computeGroupRect(group: SDGroup, model: SDModel): GroupRect {
   const members = group.members
     .map(id => model.stocks.find(s => s.id === id) ?? model.auxiliaries.find(a => a.id === id))
-    .filter((n): n is Node => !!n);
+    .filter((n): n is Stock | Auxiliary => !!n);
 
   if (members.length === 0) return { x: 0, y: 0, w: 120, h: 80 };
 
@@ -731,6 +731,76 @@ export function attachSDLegendBoxDrag(
 
 export type SvgSel = d3.Selection<SVGSVGElement, unknown, null, undefined>;
 
+// ── Text blocks ───────────────────────────────────────────────────────────────
+
+const TB_PADDING    = 12;
+const TB_LINE_H     = 16;
+const TB_FONT_SIZE  = 12;
+const TB_MIN_WIDTH  = 160;
+const TB_DEFAULT_X  = 200;
+const TB_DEFAULT_Y  = 80;
+
+function drawTextBlocks(svg: SvgSel, model: SDModel, theme: Theme): void {
+  for (let idx = 0; idx < model.textBlocks.length; idx++) {
+    const tb = model.textBlocks[idx];
+    const saved = model.savedPositions[tb.id];
+    if (saved) { tb.x = saved.x; tb.y = saved.y; }
+    else { tb.x = TB_DEFAULT_X + idx * 20; tb.y = TB_DEFAULT_Y + idx * 20; }
+
+    const lines   = tb.content.split('\n');
+    const maxLen  = Math.max(...lines.map(l => l.length));
+    const tbW     = Math.max(TB_MIN_WIDTH, maxLen * 7 + TB_PADDING * 2);
+    const tbH     = lines.length * TB_LINE_H + TB_PADDING * 2;
+
+    const g = svg.append('g')
+      .attr('class', 'textblock')
+      .attr('data-id', tb.id)
+      .attr('transform', `translate(${tb.x},${tb.y})`)
+      .style('cursor', 'move');
+
+    g.append('rect')
+      .attr('width', tbW).attr('height', tbH)
+      .attr('rx', 4)
+      .attr('fill', theme.textBlock.fill)
+      .attr('stroke', theme.textBlock.stroke)
+      .attr('stroke-width', 1);
+
+    lines.forEach((line, i) => {
+      g.append('text')
+        .attr('x', TB_PADDING)
+        .attr('y', TB_PADDING + TB_FONT_SIZE + i * TB_LINE_H)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', `${TB_FONT_SIZE}px`)
+        .attr('fill', theme.textBlock.text)
+        .text(line);
+    });
+  }
+}
+
+export function attachTextBlockDrag(
+  svg: SvgSel,
+  model: SDModel,
+  onUpdate: () => void,
+): void {
+  svg.selectAll<SVGGElement, unknown>('g.textblock').each(function () {
+    const el   = this as SVGGElement;
+    const tbId = el.getAttribute('data-id')!;
+    const tb   = model.textBlocks.find(t => t.id === tbId);
+    if (!tb) return;
+
+    d3.select(el).call(
+      d3.drag<SVGGElement, unknown>()
+        .on('drag', function (event) {
+          tb.x += event.dx;
+          tb.y += event.dy;
+          model.savedPositions[tbId] = { x: Math.round(tb.x), y: Math.round(tb.y) };
+          d3.select(el).attr('transform', `translate(${tb.x},${tb.y})`);
+          onUpdate();
+        }),
+    );
+  });
+}
+
 export function render(svg: SvgSel, model: SDModel): void {
   const theme = getTheme(model.meta.theme);
 
@@ -751,6 +821,7 @@ export function render(svg: SvgSel, model: SDModel): void {
   drawStocks(svg, model, theme);
   drawClouds(svg, model, theme);
   drawAuxiliaries(svg, model, theme);
+  drawTextBlocks(svg, model, theme);
   if (model.meta.legend !== false) drawSDLegendBox(svg, model, theme);
   drawMetaBox(svg, model, theme);
 }
@@ -762,8 +833,9 @@ export function redrawConnectors(svg: SvgSel, model: SDModel): void {
   drawFlows(svg, model, theme);
   drawConnectors(svg, model, theme);
   updateGroupRects(svg, model);
-  // Bring nodes, legend box, and meta box back to front
+  // Bring nodes, text blocks, legend box, and meta box back to front
   svg.selectAll('g.node').raise();
+  svg.selectAll('g.textblock').raise();
   svg.selectAll('.legend-box').raise();
   svg.selectAll('.meta-box').raise();
 }

@@ -1,14 +1,14 @@
 import * as d3 from 'd3';
 import { parse } from './parser';
 import { layout } from './sd/layout';
-import { render, pageRect, attachMetaBoxDrag, attachSDLegendBoxDrag } from './sd/renderer';
+import { render, pageRect, attachMetaBoxDrag, attachSDLegendBoxDrag, attachTextBlockDrag as attachSDTextBlockDrag } from './sd/renderer';
 import { attachDrag, attachGroupDrag as attachSDGroupDrag } from './sd/drag';
 import { idLayout } from './id/layout';
-import { idRender, attachIdDrag, attachGroupDrag, attachLegendBoxDrag } from './id/renderer';
+import { idRender, attachIdDrag, attachGroupDrag, attachLegendBoxDrag, attachTextBlockDrag as attachIDTextBlockDrag } from './id/renderer';
 import { iffLayout } from './iff/layout';
-import { iffRender, attachIffDrag, attachIffGroupDrag, attachIffLegendBoxDrag } from './iff/renderer';
+import { iffRender, attachIffDrag, attachIffGroupDrag, attachIffLegendBoxDrag, attachIffTextBlockDrag } from './iff/renderer';
 import { tmLayout } from './tm/layout';
-import { tmRender, attachTmDrag, attachTmMetaBoxDrag } from './tm/renderer';
+import { tmRender, attachTmDrag, attachTmMetaBoxDrag, attachTmTextBlockDrag } from './tm/renderer';
 import { loadProjectDirectory } from './project/loader';
 import { buildRegistry, emptyRegistry } from './project/registry';
 import { ensureReadPermission, loadCommonFolderHandle, saveCommonFolderHandle } from './project/settings';
@@ -99,6 +99,11 @@ function updateEditorPositions(model: SDModel | IDModel | IFFModel | TMModel): v
       .join('\n');
   }
 
+  // Persist textblock positions for all diagram types
+  for (const tb of (model as { textBlocks?: { id: string; x: number; y: number }[] }).textBlocks ?? []) {
+    posLines += `\n@position ${tb.id} ${Math.round(tb.x)} ${Math.round(tb.y)}`;
+  }
+
   const metaPos = model.savedPositions['__meta__'];
   if (metaPos) {
     posLines += `\n@position __meta__ ${Math.round(metaPos.x)} ${Math.round(metaPos.y)}`;
@@ -146,6 +151,7 @@ function runRender(): void {
     idRender(svg, idModel);
     attachIdDrag(svg, idModel, () => updateEditorPositions(idModel));
     attachGroupDrag(svg, idModel, () => updateEditorPositions(idModel));
+    attachIDTextBlockDrag(svg, idModel, () => updateEditorPositions(idModel));
     attachLegendBoxDrag(svg, idModel, () => updateEditorPositions(idModel));
     attachMetaBoxDrag(svg, idModel, () => updateEditorPositions(idModel));
   } else if (model.meta.diagramType === 'infoflow') {
@@ -154,6 +160,7 @@ function runRender(): void {
     iffRender(svg, iffModel);
     attachIffDrag(svg, iffModel, () => updateEditorPositions(iffModel));
     attachIffGroupDrag(svg, iffModel, () => updateEditorPositions(iffModel));
+    attachIffTextBlockDrag(svg, iffModel, () => updateEditorPositions(iffModel));
     attachIffLegendBoxDrag(svg, iffModel, () => updateEditorPositions(iffModel));
     attachMetaBoxDrag(svg, iffModel, () => updateEditorPositions(iffModel));
   } else if (model.meta.diagramType === 'tm') {
@@ -161,6 +168,7 @@ function runRender(): void {
     tmLayout(tmModel);
     tmRender(svg, tmModel, projectRegistry);
     attachTmDrag(svg, tmModel, () => updateEditorPositions(tmModel));
+    attachTmTextBlockDrag(svg, tmModel, () => updateEditorPositions(tmModel));
     attachTmMetaBoxDrag(svg, tmModel, () => updateEditorPositions(tmModel));
   } else {
     const sdModel = model as SDModel;
@@ -168,6 +176,7 @@ function runRender(): void {
     render(svg, sdModel);
     attachDrag(svg, sdModel, () => updateEditorPositions(sdModel));
     attachSDGroupDrag(svg, sdModel, () => updateEditorPositions(sdModel));
+    attachSDTextBlockDrag(svg, sdModel, () => updateEditorPositions(sdModel));
     attachSDLegendBoxDrag(svg, sdModel, () => updateEditorPositions(sdModel));
     attachMetaBoxDrag(svg, sdModel, () => updateEditorPositions(sdModel));
   }

@@ -1,4 +1,4 @@
-import type { ModelMeta, Position } from '../types';
+import type { ModelMeta, Position, TextBlock } from '../types';
 
 export type { Position } from '../types';  // re-export for convenience within sd/
 
@@ -39,6 +39,8 @@ export interface SDGroup {
 
 export type Node = Stock | Cloud | Auxiliary;
 
+export type { TextBlock } from '../types';   // re-export for sd/ consumers
+
 export interface SDModel {
   meta:           ModelMeta;
   stocks:         Stock[];
@@ -47,5 +49,6 @@ export interface SDModel {
   flows:          Flow[];
   connectors:     Connector[];
   groups:         SDGroup[];
+  textBlocks:     TextBlock[];
   savedPositions: Record<string, Position>;
 }

@@ -416,6 +416,71 @@ function drawStrideKey(svg: TmSvgSel, model: TMModel, theme: TMTheme): void {
   });
 }
 
+// ── Text blocks ───────────────────────────────────────────────────────────────
+
+const TB_PADDING   = 12;
+const TB_LINE_H    = 16;
+const TB_FONT_SIZE = 12;
+const TB_MIN_WIDTH = 160;
+
+function drawTextBlocks(svg: TmSvgSel, model: TMModel): void {
+  const textBlockTheme = getTheme(model.meta.theme).textBlock;
+  for (let idx = 0; idx < model.textBlocks.length; idx++) {
+    const tb    = model.textBlocks[idx];
+    const saved = model.savedPositions[tb.id];
+    if (saved) { tb.x = saved.x; tb.y = saved.y; }
+    else { tb.x = 200 + idx * 20; tb.y = 80 + idx * 20; }
+
+    const lines  = tb.content.split('\n');
+    const maxLen = Math.max(...lines.map(l => l.length));
+    const tbW    = Math.max(TB_MIN_WIDTH, maxLen * 7 + TB_PADDING * 2);
+    const tbH    = lines.length * TB_LINE_H + TB_PADDING * 2;
+
+    const g = svg.append('g')
+      .attr('class', 'textblock')
+      .attr('data-id', tb.id)
+      .attr('transform', `translate(${tb.x},${tb.y})`)
+      .style('cursor', 'move');
+
+    g.append('rect')
+      .attr('width', tbW).attr('height', tbH)
+      .attr('rx', 4)
+      .attr('fill', textBlockTheme.fill)
+      .attr('stroke', textBlockTheme.stroke)
+      .attr('stroke-width', 1);
+
+    lines.forEach((line, i) => {
+      g.append('text')
+        .attr('x', TB_PADDING)
+        .attr('y', TB_PADDING + TB_FONT_SIZE + i * TB_LINE_H)
+        .attr('font-family', 'Courier New, Courier, monospace')
+        .attr('font-size', `${TB_FONT_SIZE}px`)
+        .attr('fill', textBlockTheme.text)
+        .text(line);
+    });
+  }
+}
+
+export function attachTmTextBlockDrag(svg: TmSvgSel, model: TMModel, onUpdate?: () => void): void {
+  svg.selectAll<SVGGElement, unknown>('g.textblock').each(function () {
+    const el   = this as SVGGElement;
+    const tbId = el.getAttribute('data-id')!;
+    const tb   = model.textBlocks.find(t => t.id === tbId);
+    if (!tb) return;
+
+    d3.select(el).call(
+      d3.drag<SVGGElement, unknown>()
+        .on('drag', function (event) {
+          tb.x += event.dx;
+          tb.y += event.dy;
+          model.savedPositions[tbId] = { x: Math.round(tb.x), y: Math.round(tb.y) };
+          d3.select(el).attr('transform', `translate(${tb.x},${tb.y})`);
+          onUpdate?.();
+        }),
+    );
+  });
+}
+
 // ── Drag ──────────────────────────────────────────────────────────────────────
 
 export function attachTmDrag(svg: TmSvgSel, model: TMModel, onDragEnd?: () => void): void {
@@ -469,6 +534,7 @@ function tmRedrawFlows(svg: TmSvgSel, model: TMModel, theme: TMTheme): void {
   drawThreats(svg, model, theme);
   updateBoundaryRects(svg, model, theme);
   svg.selectAll('g.tm-ref').raise();
+  svg.selectAll('g.textblock').raise();
   svg.selectAll('.meta-box').raise();
   svg.selectAll('.mitigations-box').raise();
   svg.selectAll('.stride-key').raise();
@@ -507,6 +573,7 @@ export function tmRender(svg: TmSvgSel, model: TMModel, registry: IDRegistry): v
   drawFlows(svg, model, theme);
   drawRefs(svg, model, theme, registry);
   drawThreats(svg, model, theme);
+  drawTextBlocks(svg, model);
   drawStrideKey(svg, model, theme);
   drawMitigationsPanel(svg, model, theme);
   drawMetaBox(svg, model, theme);
