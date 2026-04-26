@@ -2,7 +2,7 @@ import type { FlowType, ModelMeta, Position, SystemType } from '../types';
 
 export type { Position } from '../types';  // re-export for convenience within iff/
 
-export type IFFRelationship = 'replicate' | 'publish' | 'subscribe' | 'ingest' | 'derive' | 'aggregate' | 'enrich' | 'merge' | 'serve' | 'query';
+export type IFFRelationship = 'replicate' | 'publish' | 'ingest' | 'derive' | 'aggregate' | 'enrich' | 'serve';
 export type IFFState        = 'current' | 'new' | 'changing' | 'decommissioned';
 export type IFFLabelCorner  = 'upper-left' | 'upper-right' | 'lower-left' | 'lower-right';
 export type IFFLinkDirection = 'unidirectional' | 'bidirectional';

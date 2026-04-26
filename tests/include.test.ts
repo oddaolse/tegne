@@ -145,7 +145,7 @@ connect Api -> Queue : SQS [flow:async]`;
 
 store cis [master]
 process syncer [SystemA]
-connect cis -> syncer : query [flow:sync]`;
+connect cis -> syncer : serve [flow:sync]`;
     const common = `@type infoflow
 @location-types
   master blue

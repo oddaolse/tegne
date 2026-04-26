@@ -450,8 +450,8 @@ process  &lt;id&gt;  [&lt;system&gt;]
 # State visuals: unchanged=current solid, changing dashed,
 #                new dotted, decommissioned = X marker
 
-# Relationships: replicate publish subscribe ingest derive
-#                aggregate enrich merge serve query
+# Relationships: replicate publish ingest derive
+#                aggregate enrich serve
 connect  &lt;from&gt;  -&gt;   &lt;to&gt;  : &lt;relationship&gt;  [flow:&lt;type&gt;]
 connect  &lt;from&gt;  &lt;-   &lt;to&gt;  : &lt;relationship&gt;  [flow:&lt;type&gt;]
 connect  &lt;from&gt;  &lt;-&gt;  &lt;to&gt;  : &lt;relationship&gt;  [flow:&lt;type&gt;]
