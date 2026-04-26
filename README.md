@@ -250,9 +250,9 @@ store crm        [master]
 store cdp        [replica]   [changing] [label:"Customer Data Platform"]
 process syncer   [SystemA]   [label:"Sync Service"]
 
-connect crm      -> syncer : query     [flow:sync]
+connect crm      -> syncer : serve     [flow:sync]
 connect syncer   -> cdp    : replicate [flow:batch]
-connect crm      <-> cdp    : merge     [flow:sync]
+connect crm      <-> cdp    : aggregate [flow:sync]
 
 group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   store crm [master]
@@ -288,16 +288,15 @@ If a process is declared inside `group ... [system:<name>]`, it inherits that sy
 
 | Keyword | Meaning |
 |---|---|
-| `replicate` | Byte-for-byte copy kept in sync |
-| `publish` | Events pushed to a broker or stream |
-| `subscribe` | Event consumer or stream subscriber |
-| `ingest` | Bulk load or batch import |
-| `derive` | Transform or compute a new dataset |
-| `aggregate` | Roll up or combine multiple sources |
-| `enrich` | Add fields from the source to an existing dataset |
-| `merge` | Reconcile multiple stores into one |
-| `serve` | Expose data to a downstream consumer |
-| `query` | Synchronous read from another node |
+| `replicate` | Copy information without changing its business meaning |
+| `publish` | Make information available as an event/message |
+| `ingest` | Load information into a target store or platform |
+| `derive` | Create new information by rules, calculation, classification, or analysis |
+| `aggregate` | Combine or summarize records or sources |
+| `enrich` | Add attributes to existing information from another source |
+| `serve` | Provide information to a consuming process, app, channel, or user-facing component |
+
+The relationship vocabulary is intentionally constrained for later analysis. Use `[flow:sync|async|batch]` for movement style; do not encode transport mechanics in the relationship verb.
 
 ### Lifecycle states
 

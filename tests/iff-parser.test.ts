@@ -90,22 +90,35 @@ end`);
     ]);
   });
 
-  it('parses query and subscribe relationships', () => {
+  it('parses all allowed relationship verbs', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-connect A -> B : query [flow:sync]
-connect B -> A : subscribe [flow:async]`);
+connect A -> B : replicate [flow:async]
+connect A -> B : publish [flow:async]
+connect A -> B : ingest [flow:async]
+connect A -> B : derive [flow:async]
+connect A -> B : aggregate [flow:async]
+connect A -> B : enrich [flow:sync]
+connect A -> B : serve [flow:sync]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
-    expect((model as IFFModel).links.map(link => link.relationship)).toEqual(['query', 'subscribe']);
+    expect((model as IFFModel).links.map(link => link.relationship)).toEqual([
+      'replicate',
+      'publish',
+      'ingest',
+      'derive',
+      'aggregate',
+      'enrich',
+      'serve',
+    ]);
   });
 
   it('parses all supported connect direction operators', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-connect A -> B : query
+connect A -> B : serve
 connect A <- B : serve
-connect A <-> B : merge`);
+connect A <-> B : aggregate`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect((model as IFFModel).links.map(link => ({
@@ -114,9 +127,9 @@ connect A <-> B : merge`);
       direction: link.direction,
       relationship: link.relationship,
     }))).toEqual([
-      { from: 'A', to: 'B', direction: 'unidirectional', relationship: 'query' },
+      { from: 'A', to: 'B', direction: 'unidirectional', relationship: 'serve' },
       { from: 'B', to: 'A', direction: 'unidirectional', relationship: 'serve' },
-      { from: 'A', to: 'B', direction: 'bidirectional', relationship: 'merge' },
+      { from: 'A', to: 'B', direction: 'bidirectional', relationship: 'aggregate' },
     ]);
   });
 
@@ -132,7 +145,7 @@ connect A -> B : replicate [flow:batch]`);
   it('infers default flow types when omitted', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-connect A -> B : query
+connect A -> B : serve
 connect B -> A : publish`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
@@ -150,14 +163,14 @@ connect B -> A : publish`);
   it('accepts legacy link keyword for backward compatibility', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 process B [SystemA]
-link A -> B : query [flow:sync]`);
+link A -> B : serve [flow:sync]`);
     const { model, errors } = parse(dsl);
     expect(errors).toHaveLength(0);
     expect((model as IFFModel).links[0]).toMatchObject({
       from: 'A',
       to: 'B',
       direction: 'unidirectional',
-      relationship: 'query',
+      relationship: 'serve',
       flowType: 'sync',
     });
   });
@@ -251,6 +264,17 @@ connect A -> B : replicate [flow:realtime]`);
     expect(errors.some(error => error.message.match(/unknown flow type/i))).toBe(true);
   });
 
+  it('reports removed relationships with migration guidance', () => {
+    const removed = ['query', 'subscribe', 'merge'];
+    for (const relationship of removed) {
+      const dsl = withInfoflowBlocks(`store A [master]
+process B [SystemA]
+connect A -> B : ${relationship}`);
+      const { errors } = parse(dsl);
+      expect(errors.some(error => error.message.includes(`Removed relationship: "${relationship}"`))).toBe(true);
+    }
+  });
+
   it('reports connection to unknown node id', () => {
     const dsl = withInfoflowBlocks(`store A [master]
 connect A -> Ghost : publish`);
@@ -261,12 +285,12 @@ connect A -> Ghost : publish`);
   it('reports missing or ambiguous connection direction operators', () => {
     const missing = parse(withInfoflowBlocks(`store A [master]
 process B [SystemA]
-connect A B : query`));
+connect A B : serve`));
     expect(missing.errors.some(error => error.message.match(/"->", "<-", or "<->"/))).toBe(true);
 
     const ambiguous = parse(withInfoflowBlocks(`store A [master]
 process B [SystemA]
-connect A -> B <- A : query`));
+connect A -> B <- A : serve`));
     expect(ambiguous.errors.some(error => error.message.match(/exactly one direction operator/i))).toBe(true);
   });
 

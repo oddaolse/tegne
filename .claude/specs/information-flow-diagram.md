@@ -6,7 +6,7 @@ Implemented. Selected with `@type infoflow`. File extension: `.iff`.
 
 ## Purpose
 
-Documents how business information is owned, copied, transformed, enriched, aggregated, queried, and served across stores and processes. It is concerned with data semantics and change scope, not transport mechanics.
+Documents how business information is owned, copied, transformed, enriched, aggregated, published, ingested, and served across stores and processes. It is concerned with data semantics and change scope, not transport mechanics.
 
 ## Syntax Summary
 
@@ -89,8 +89,8 @@ system_attr     = "system:" system_name ;
 corner_attr     = "corner:" ("upper-left" | "upper-right" | "lower-left" | "lower-right") ;
 
 state           = "unchanged" | "new" | "changing" | "decommissioned" ;
-relationship    = "replicate" | "publish" | "subscribe" | "ingest" | "derive"
-                | "aggregate" | "enrich" | "merge" | "serve" | "query" ;
+relationship    = "replicate" | "publish" | "ingest" | "derive"
+                | "aggregate" | "enrich" | "serve" ;
 flow_style      = "solid" | "dashed" | "thick" ;
 colour          = "green" | "blue" | "red" | "orange" | "purple"
                 | "grey" | "yellow" | "cyan" | "pink" | "teal" ;
@@ -123,23 +123,22 @@ Supported relationship names:
 
 | Relationship | Meaning |
 |---|---|
-| `replicate` | copy source data to a target |
-| `publish` | emit events or records |
-| `subscribe` | consume events or records |
-| `ingest` | load data into another store |
-| `derive` | compute a derived store |
-| `aggregate` | combine multiple data sources |
-| `enrich` | add source data to an existing record |
-| `merge` | reconcile streams or stores |
-| `serve` | provide data to a consumer |
-| `query` | synchronous read |
+| `replicate` | Copy information from one store/system to another without changing its business meaning. |
+| `publish` | Make information available as an event/message for one or more consumers. |
+| `ingest` | Load information into a target store or platform for further use. |
+| `derive` | Create new information from existing information by rules, calculation, classification, or analysis. |
+| `aggregate` | Combine or summarize information from multiple records or sources. |
+| `enrich` | Add additional attributes to existing information from another source. |
+| `serve` | Provide information to a consuming process, application, channel, or user-facing component. |
+
+The vocabulary is intentionally constrained to improve later analysis. Removed verbs are rejected with migration guidance: use `serve` instead of `query`, model producer-side `publish` instead of `subscribe`, and replace `merge` with `aggregate`, `derive`, or `enrich` based on meaning.
 
 Default flow inference:
 
 | Relationships | Default flow |
 |---|---|
-| `replicate`, `publish`, `subscribe`, `ingest`, `derive`, `aggregate`, `merge` | `async` |
-| `query`, `enrich`, `serve` | `sync` |
+| `replicate`, `publish`, `ingest`, `derive`, `aggregate` | `async` |
+| `enrich`, `serve` | `sync` |
 
 ## State Visuals
 
@@ -184,9 +183,9 @@ group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   store cis [master] [label:"CIS"]
   store cdp [replica] [changing] [label:"CDP"]
   process cis_sync [label:"CIS Sync Service"]
-  connect cis -> cis_sync : query [flow:sync]
+  connect cis -> cis_sync : serve [flow:sync]
   connect cis_sync -> cdp : replicate [flow:batch]
-  connect cis <-> cdp : merge [flow:sync]
+  connect cis <-> cdp : aggregate [flow:sync]
 end
 
 store ext_ref [reference] [label:"External Reference Data"]

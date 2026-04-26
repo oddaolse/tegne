@@ -15,7 +15,7 @@ group customer_domain "Customer Domain" [system:SystemA] [corner:upper-left]
   process cdp_enricher [changing] [label:"CDP Enricher"]
   connect cis -> cis_sync : replicate [flow:batch]
   connect cis_sync -> cdp : replicate [flow:async]
-  connect cis -> cdp_enricher : query [flow:sync]
+  connect cis -> cdp_enricher : serve [flow:sync]
 end
 
 group analytics "Analytics" [system:SystemB] [corner:upper-right]

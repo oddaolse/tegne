@@ -11,8 +11,13 @@ import { THEMES, VALID_PALETTE_COLOURS } from '../themes';
 const POSITIONAL_KEYWORDS_IFF = new Set(['store', 'process', 'connect', 'link', 'group', 'end']);
 
 const VALID_RELATIONSHIPS: readonly IFFRelationship[] = [
-  'replicate', 'publish', 'subscribe', 'ingest', 'derive', 'aggregate', 'enrich', 'merge', 'serve', 'query',
+  'replicate', 'publish', 'ingest', 'derive', 'aggregate', 'enrich', 'serve',
 ];
+const REMOVED_RELATIONSHIP_GUIDANCE: Record<string, string> = {
+  query: 'use "serve" when a source provides information to a consumer',
+  subscribe: 'model the producer side as "publish"',
+  merge: 'use "aggregate", "derive", or "enrich" depending on the business meaning',
+};
 
 const VALID_STATES: readonly string[] = ['new', 'changing', 'decommissioned', 'unchanged'];
 
@@ -131,13 +136,10 @@ function inferFlowType(relationship: IFFRelationship): string | undefined {
   switch (relationship) {
     case 'replicate':
     case 'publish':
-    case 'subscribe':
     case 'ingest':
     case 'derive':
     case 'aggregate':
-    case 'merge':
       return 'async';
-    case 'query':
     case 'enrich':
     case 'serve':
       return 'sync';
@@ -450,7 +452,13 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
         if (!from) { errors.push({ line: lineNum, message: 'connection: missing source id' }); break; }
         if (!to) { errors.push({ line: lineNum, message: 'connection: missing target id' }); break; }
         if (!(VALID_RELATIONSHIPS as readonly string[]).includes(relationship)) {
-          errors.push({ line: lineNum, message: `Unknown relationship: "${relationship}". Valid: ${VALID_RELATIONSHIPS.join(', ')}` });
+          const guidance = REMOVED_RELATIONSHIP_GUIDANCE[relationship];
+          errors.push({
+            line: lineNum,
+            message: guidance
+              ? `Removed relationship: "${relationship}". ${guidance}. Valid: ${VALID_RELATIONSHIPS.join(', ')}`
+              : `Unknown relationship: "${relationship}". Valid: ${VALID_RELATIONSHIPS.join(', ')}`,
+          });
           break;
         }
 
