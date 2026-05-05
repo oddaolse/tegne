@@ -335,6 +335,15 @@ export function parseIFF(lines: string[], options?: ParseOptions): ParseResult {
           }
           break;
         }
+        case '@info': {
+          const v = value.toLowerCase();
+          if (v !== 'on' && v !== 'off') {
+            errors.push({ line: lineNum, message: `@info must be on or off, got: "${value}"` });
+          } else {
+            meta.info = v === 'on';
+          }
+          break;
+        }
         case '@show-ids': {
           const v = value.toLowerCase();
           if (v !== 'on' && v !== 'off') {

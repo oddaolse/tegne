@@ -576,5 +576,5 @@ export function tmRender(svg: TmSvgSel, model: TMModel, registry: IDRegistry): v
   drawTextBlocks(svg, model);
   drawStrideKey(svg, model, theme);
   drawMitigationsPanel(svg, model, theme);
-  drawMetaBox(svg, model, theme);
+  if (model.meta.info !== false) drawMetaBox(svg, model, theme);
 }

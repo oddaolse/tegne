@@ -17,9 +17,9 @@ export interface BorderStyle {
 export function getBorderStyle(state: IFFState): BorderStyle {
   switch (state) {
     case 'current':        return { strokeWidth: 2, dashArray: null,  fillOpacity: 1.0, showCross: false };
-    case 'new':            return { strokeWidth: 2, dashArray: '2,4', fillOpacity: 1.0, showCross: false };
-    case 'changing':       return { strokeWidth: 2, dashArray: '6,4', fillOpacity: 0.5, showCross: false };
-    case 'decommissioned': return { strokeWidth: 2, dashArray: null,  fillOpacity: 1.0, showCross: true };
+    case 'new':            return { strokeWidth: 2, dashArray: '2,3', fillOpacity: 1.0, showCross: false };
+    case 'changing':       return { strokeWidth: 2, dashArray: '6,4', fillOpacity: 1.0, showCross: false };
+    case 'decommissioned': return { strokeWidth: 2, dashArray: '2,4', fillOpacity: 1.0, showCross: false };
   }
 }
 

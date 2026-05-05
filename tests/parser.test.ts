@@ -256,6 +256,24 @@ stock B
     expect((model as SDModel).auxiliaries).not.toHaveLength(0);
     expect((model as SDModel).connectors).not.toHaveLength(0);
   });
+
+  it('parses @info on', () => {
+    const { model, errors } = parse('@info on');
+    expect(errors).toHaveLength(0);
+    expect(model!.meta.info).toBe(true);
+  });
+
+  it('parses @info off', () => {
+    const { model, errors } = parse('@info off');
+    expect(errors).toHaveLength(0);
+    expect(model!.meta.info).toBe(false);
+  });
+
+  it('leaves meta.info undefined when @info is absent', () => {
+    const { model, errors } = parse('stock Population');
+    expect(errors).toHaveLength(0);
+    expect(model!.meta.info).toBeUndefined();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -431,5 +449,10 @@ flow bad
     const { model, errors } = parse(dsl);
     expect(errors.length).toBeGreaterThan(1);
     expect(model).not.toBeNull(); // partial model still returned
+  });
+
+  it('reports invalid @info value', () => {
+    const { errors } = parse('@info maybe');
+    expect(errors.some(e => e.message.includes('@info must be on or off'))).toBe(true);
   });
 });

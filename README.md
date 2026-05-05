@@ -69,6 +69,8 @@ Included files must be the same diagram type. They contribute dictionaries, disp
 @author       Jane Smith
 @theme        dark             # dark (default), light, or tokyo
 @orientation  landscape        # landscape (default) or portrait
+@legend       on               # on (default) or off
+@info         on               # on (default) or off
 
 stock  <name>
 cloud  <name> [source|sink]
@@ -146,6 +148,7 @@ For IT architects documenting integration landscapes: what systems, databases, a
 @orientation  landscape | portrait
 @size         a4 | a3 | a2 | a1 | a0
 @legend       on | off
+@info         on | off
 @show-ids     on | off
 
 @include      common.id
@@ -342,6 +345,7 @@ It does not model infrastructure topology, network zones, deployment details, or
 @orientation landscape | portrait
 @size     a4 | a3 | a2 | a1 | a0
 @legend   on | off
+@info     on | off
 @show-ids on | off
 
 @include  common.iff

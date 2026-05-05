@@ -62,9 +62,9 @@ describe('iff geometry helpers', () => {
     expect(iffLinkMarkers('bidirectional')).toEqual({ markerStart: 'url(#iff-arrow)', markerEnd: 'url(#iff-arrow)' });
   });
 
-  it('uses dotted borders for new and X markers for decommissioned', () => {
-    expect(getBorderStyle('new')).toMatchObject({ dashArray: '2,4', strokeWidth: 2, showCross: false });
-    expect(getBorderStyle('decommissioned')).toMatchObject({ dashArray: null, strokeWidth: 2, showCross: true });
+  it('uses dotted borders for new and decommissioned states', () => {
+    expect(getBorderStyle('new')).toMatchObject({ dashArray: '2,3', strokeWidth: 2, showCross: false });
+    expect(getBorderStyle('decommissioned')).toMatchObject({ dashArray: '2,4', strokeWidth: 2, showCross: false });
     expect(getBorderStyle('current')).toMatchObject({ dashArray: null, showCross: false });
     expect(getBorderStyle('changing')).toMatchObject({ dashArray: '6,4', showCross: false });
   });

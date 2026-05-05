@@ -16,6 +16,18 @@ describe('@include across diagram parsers', () => {
     expect(sd.stocks.map(stock => stock.id)).toEqual(['Population']);
   });
 
+  it('applies @info default from include but lets the host override', () => {
+    const files = new Map([['common.sd', '@type sd\n@info off']]);
+
+    const includedOnly = parse('@type sd\n@include common.sd\nstock A', { includeFiles: files });
+    expect(includedOnly.errors).toHaveLength(0);
+    expect(includedOnly.model!.meta.info).toBe(false);
+
+    const hostWins = parse('@type sd\n@include common.sd\n@info on\nstock A', { includeFiles: files });
+    expect(hostWins.errors).toHaveLength(0);
+    expect(hostWins.model!.meta.info).toBe(true);
+  });
+
   it('keeps local SD metadata over included defaults', () => {
     const files = new Map([['common.sd', '@type sd\n@theme light\n@size a3']]);
     const { model, errors } = parse('@type sd\n@include common.sd\n@theme tokyo', { includeFiles: files });

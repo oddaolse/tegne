@@ -230,6 +230,22 @@ end`);
     expect(iff.links.length).toBe(8);
     expect(iff.groups.length).toBe(2);
   });
+
+  it('parses @info on/off', () => {
+    const onResult = parse(withInfoflowBlocks('@info on\nstore foo [master]'));
+    expect(onResult.errors).toHaveLength(0);
+    expect(onResult.model!.meta.info).toBe(true);
+
+    const offResult = parse(withInfoflowBlocks('@info off\nstore foo [master]'));
+    expect(offResult.errors).toHaveLength(0);
+    expect(offResult.model!.meta.info).toBe(false);
+  });
+
+  it('leaves meta.info undefined when @info is absent', () => {
+    const { model, errors } = parse(withInfoflowBlocks('store foo [master]'));
+    expect(errors).toHaveLength(0);
+    expect(model!.meta.info).toBeUndefined();
+  });
 });
 
 describe('iff-parser — negative tests', () => {
@@ -333,5 +349,10 @@ end`);
 process A [Broken]`;
     const { errors } = parse(dsl);
     expect(errors.some(error => error.message.match(/unknown palette colour/i))).toBe(true);
+  });
+
+  it('reports invalid @info value', () => {
+    const { errors } = parse(withInfoflowBlocks('@info maybe\nstore foo [master]'));
+    expect(errors.some(error => error.message.match(/@info must be on or off/))).toBe(true);
   });
 });

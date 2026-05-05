@@ -58,6 +58,7 @@ metadata        = "@type" "infoflow"
                 | "@orientation" ("landscape" | "portrait")
                 | "@size" ("a4" | "a3" | "a2" | "a1" | "a0")
                 | "@legend" ("on" | "off")
+                | "@info" ("on" | "off")
                 | "@show-ids" ("on" | "off") ;
 
 palette_block   = location_types | systems | flow_types ;

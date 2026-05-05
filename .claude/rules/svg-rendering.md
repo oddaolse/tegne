@@ -61,6 +61,7 @@ Rendered in the **bottom-left corner** of the page area.
 - Optional fields omitted if not set; `date` always shown
 - Not draggable — canvas annotation only
 - Included in SVG export unchanged
+- Suppressed entirely when the model has `@info off` (default: on). The renderer guards the `drawMetaBox` call with `if (model.meta.info !== false)`.
 
 ## Canvas Background
 

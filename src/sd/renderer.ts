@@ -823,7 +823,7 @@ export function render(svg: SvgSel, model: SDModel): void {
   drawAuxiliaries(svg, model, theme);
   drawTextBlocks(svg, model, theme);
   if (model.meta.legend !== false) drawSDLegendBox(svg, model, theme);
-  drawMetaBox(svg, model, theme);
+  if (model.meta.info !== false) drawMetaBox(svg, model, theme);
 }
 
 export function redrawConnectors(svg: SvgSel, model: SDModel): void {

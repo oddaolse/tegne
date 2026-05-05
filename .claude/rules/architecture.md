@@ -27,7 +27,7 @@ Lines starting with `@name`, `@version`, `@date`, `@author`, `@theme`, `@orienta
 `@include <filename>` loads definitions from another file in the opened project folder. Includes are parse-time only and same-type only (`.sd` into SD, `.id` into ID, `.iff` into infoflow, `.tm` into threat model).
 - Included files must not contain positional declarations, `@position`, or nested `@include`.
 - Included identity metadata (`@name`, `@version`, `@date`, `@author`) is ignored.
-- Included display metadata (`@theme`, `@orientation`, `@size`, `@legend`, `@show-ids`) is default-only; the host file wins.
+- Included display metadata (`@theme`, `@orientation`, `@size`, `@legend`, `@info`, `@show-ids`) is default-only; the host file wins.
 - Dictionary blocks merge additively before host declarations; duplicate names are parse errors.
 - TM includes additionally merge `@ref` file entries.
 - Single-file open does not load siblings; an unresolved include must produce an actionable parse error.

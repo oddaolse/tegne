@@ -643,7 +643,7 @@ export function idRender(svg: IdSvgSel, model: IDModel): void {
   drawElements(svg, model, theme);
   drawTextBlocks(svg, model);
   if (model.meta.legend !== false) drawLegendBox(svg, model, theme);
-  drawMetaBox(svg, model, theme);
+  if (model.meta.info !== false) drawMetaBox(svg, model, theme);
 }
 
 export function idRedrawConnections(svg: IdSvgSel, model: IDModel): void {

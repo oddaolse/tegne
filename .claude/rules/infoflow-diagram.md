@@ -36,7 +36,11 @@ Use `.claude/specs/information-flow-diagram.md` as the authoritative syntax and 
   - current/unchanged: solid
   - changing: dashed
   - new: dotted
-  - decommissioned: X marker
+  - decommissioned: dotted (harmonised with ID)
+
+## Known Follow-Ups
+
+- `showCross` field on `BorderStyle` in `src/iff/shapes.ts` is currently always `false`. The cross-rendering branches in `drawNode()` are dead. Kept intentionally while state-visual syntax is still maturing — strip the field, the X-rendering code, and update the spec once the design settles.
 
 ## Tests
 

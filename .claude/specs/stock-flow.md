@@ -42,7 +42,7 @@ end
 - Groups may contain stocks and aux nodes, not clouds.
 - Groups cannot be nested.
 - `@include` may load same-type `.sd` files from the opened project folder.
-- Included files contribute only display defaults (`@theme`, `@orientation`, `@size`, `@legend`, `@show-ids`); stocks, clouds, flows, connectors, groups, positions, and nested includes are invalid inside included files.
+- Included files contribute only display defaults (`@theme`, `@orientation`, `@size`, `@legend`, `@info`, `@show-ids`); stocks, clouds, flows, connectors, groups, positions, and nested includes are invalid inside included files.
 
 ## Rendering
 

@@ -8,7 +8,7 @@ export interface IncludedContent {
   systemTypes:   SystemType[];
   flowTypes:     FlowType[];
   refFiles:      string[];
-  metaDefaults:  Partial<Pick<ModelMeta, 'theme' | 'orientation' | 'size' | 'legend' | 'showIds'>>;
+  metaDefaults:  Partial<Pick<ModelMeta, 'theme' | 'orientation' | 'size' | 'legend' | 'info' | 'showIds'>>;
 }
 
 export function emptyIncludedContent(): IncludedContent {
@@ -16,7 +16,7 @@ export function emptyIncludedContent(): IncludedContent {
 }
 
 const META_DEFAULT_KEYS: ReadonlyArray<keyof IncludedContent['metaDefaults']> = [
-  'theme', 'orientation', 'size', 'legend', 'showIds',
+  'theme', 'orientation', 'size', 'legend', 'info', 'showIds',
 ];
 
 /**

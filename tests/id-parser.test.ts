@@ -252,6 +252,22 @@ system B [cloud]`;
     expect(kinds).toContain('database');
     expect(kinds).toContain('queue');
   });
+
+  it('parses @info on/off', () => {
+    const onResult = parse(withLocationTypes('@info on\nsystem A [aws]'));
+    expect(onResult.errors).toHaveLength(0);
+    expect(onResult.model!.meta.info).toBe(true);
+
+    const offResult = parse(withLocationTypes('@info off\nsystem A [aws]'));
+    expect(offResult.errors).toHaveLength(0);
+    expect(offResult.model!.meta.info).toBe(false);
+  });
+
+  it('leaves meta.info undefined when @info is absent', () => {
+    const { model, errors } = parse(withLocationTypes('system A [aws]'));
+    expect(errors).toHaveLength(0);
+    expect(model!.meta.info).toBeUndefined();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -383,5 +399,10 @@ system B [azure]
 connect A -> B : REST [flow:]`);
     const { errors } = parse(dsl);
     expect(errors.some(e => e.message.match(/requires a type/i))).toBe(true);
+  });
+
+  it('reports invalid @info value', () => {
+    const { errors } = parse(withLocationTypes('@info maybe\nsystem A [aws]'));
+    expect(errors.some(e => e.message.match(/@info must be on or off/))).toBe(true);
   });
 });

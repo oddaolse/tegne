@@ -686,7 +686,7 @@ export function iffRender(svg: IffSvgSel, model: IFFModel): void {
   drawNodes(svg, model, theme);
   drawTextBlocks(svg, model);
   if (model.meta.legend !== false) drawIffLegendBox(svg, model, theme);
-  drawMetaBox(svg, model, theme);
+  if (model.meta.info !== false) drawMetaBox(svg, model, theme);
 }
 
 export function iffRedrawLinks(svg: IffSvgSel, model: IFFModel): void {

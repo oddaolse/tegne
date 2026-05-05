@@ -43,6 +43,7 @@ All diagram types support these metadata directives unless the diagram spec stat
 @size         a4|a3|a2|a1|a0
 @show-ids     on|off
 @legend       on|off
+@info         on|off
 ```
 
 Defaults:
@@ -54,6 +55,7 @@ Defaults:
 - missing `@size` means `a4`
 - missing `@show-ids` means `off`
 - missing `@legend` means `on` where the diagram has a legend
+- missing `@info` means `on` (metadata info box rendered)
 
 All diagram types support same-type shared setup files:
 

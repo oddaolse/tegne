@@ -27,6 +27,7 @@ export interface ModelMeta {
   orientation?:    'landscape' | 'portrait';
   size?:           'a4' | 'a3' | 'a2' | 'a1' | 'a0';
   legend?:         boolean;         // show legend box (default: true)
+  info?:           boolean;         // show metadata info box (default: true)
   showIds?:        boolean;         // overlay element id badges (default: false)
   locationTypes?:  LocationType[];  // user-defined location-type → colour mappings
   systemTypes?:    SystemType[];    // user-defined process system → colour mappings
